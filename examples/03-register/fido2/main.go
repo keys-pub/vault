@@ -38,6 +38,12 @@ func main() {
 	}
 	vlt.SetFIDO2Plugin(fido2Plugin)
 
+	// Registering new auth method requires unlock
+	if _, err := vlt.UnlockWithPassword("testpassword"); err != nil {
+		log.Fatal(err)
+	}
+	defer vlt.Lock()
+
 	pin := "12345"
 
 	devices, err := vlt.FIDO2Devices(context.TODO())
@@ -51,12 +57,18 @@ func main() {
 	device := devices[0].Path
 	fmt.Printf("Using device: %s\n", device)
 
-	// Unlock
-	fmt.Println("Unlocking with FIDO2 hmac-secret...")
-	if err := vlt.UnlockWithFIDO2HMACSecret(context.TODO(), pin); err != nil {
+	// Generate
+	fmt.Println("Generating FIDO2 hmac-secret...")
+	hs, err := vlt.GenerateFIDO2HMACSecret(context.TODO(), pin, device, "keys.pub/vault/examples")
+	if err != nil {
 		log.Fatal(err)
 	}
-	defer vlt.Lock()
+
+	// Register
+	fmt.Println("Register FIDO2 hmac-secret...")
+	if err := vlt.RegisterFIDO2HMACSecret(context.TODO(), hs, pin); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func testSeed(b byte) *[32]byte {

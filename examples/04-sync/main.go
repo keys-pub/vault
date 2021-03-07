@@ -41,7 +41,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := vlt.UnlockWithPassword("testpassword"); err != nil {
+	if _, err := vlt.UnlockWithPassword("testpassword"); err != nil {
 		log.Fatal(errors.Wrapf(err, "failed to open vault"))
 	}
 	defer vlt.Lock()

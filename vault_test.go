@@ -2,7 +2,6 @@ package vault_test
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,41 +16,40 @@ import (
 	"github.com/vmihailenco/msgpack/v4"
 )
 
-func TestVault(t *testing.T) {
-	// vault.SetLogger(vault.NewLogger(vault.DebugLevel))
+func TestVaultSetup(t *testing.T) {
 	var err error
 	env := testutil.NewEnv(t, nil) // vault.NewLogger(vault.DebugLevel))
-	defer env.CloseFn()
-
-	ck := keys.NewEdX25519KeyFromSeed(testSeed(0x01))
-
-	// Vault #1
-	v1, closeFn := testVault(t, env, testSeed(0x01), ck)
+	vlt, closeFn := testVault(t, env)
 	defer closeFn()
 
-	err = v1.Add(&Message{Text: "hi alice"})
-	require.NoError(t, err)
-	err = v1.Add(&Message{Text: "hello bob"})
-	require.NoError(t, err)
-	err = v1.Add(&Message{Text: "meet at 3pm?"})
-	require.NoError(t, err)
+	mk := keys.Rand32()
 
-	err = v1.Sync(context.TODO())
-	require.NoError(t, err)
+	err = vlt.Unlock(mk)
+	require.EqualError(t, err, "needs setup")
 
-	events, err := v1.Pulled(0)
+	err = vlt.Setup(mk)
 	require.NoError(t, err)
+	require.False(t, vlt.NeedsSetup())
 
-	// Vault #2
-	v2, closeFn := testVault(t, env, testSeed(0x02), ck)
+	// Unlock multiple times
+	err = vlt.Unlock(mk)
+	require.NoError(t, err)
+	err = vlt.Unlock(mk)
+	require.NoError(t, err)
+}
+
+func TestVaultInvalidPassword(t *testing.T) {
+	var err error
+	env := testutil.NewEnv(t, nil) // vault.NewLogger(vault.DebugLevel))
+	vlt, closeFn := testVault(t, env)
 	defer closeFn()
 
-	err = v2.Sync(context.TODO())
+	_, err = vlt.SetupPassword("testpassword")
 	require.NoError(t, err)
+	require.False(t, vlt.NeedsSetup())
 
-	events2, err := v2.Pulled(0)
-	require.NoError(t, err)
-	require.Equal(t, events, events2)
+	_, err = vlt.UnlockWithPassword("invalidpassword")
+	require.EqualError(t, err, "invalid auth")
 }
 
 func testPath() string {
@@ -62,9 +60,9 @@ func testSeed(b byte) *[32]byte {
 	return keys.Bytes32(bytes.Repeat([]byte{b}, 32))
 }
 
-func testVault(t *testing.T, env *testutil.Env, mk *[32]byte, ck *keys.EdX25519Key) (*vault.Vault, func()) {
+func testVault(t *testing.T, env *testutil.Env) (*vault.Vault, func()) {
 	var err error
-	client := testutil.NewClient(t, env, "vault")
+	client := testutil.NewClient(t, env)
 	path := testPath()
 	authPath := testPath()
 
@@ -73,12 +71,6 @@ func testVault(t *testing.T, env *testutil.Env, mk *[32]byte, ck *keys.EdX25519K
 
 	vlt, err := vault.New(path, auth, nil, vault.WithClient(client), vault.WithClock(tsutil.NewTestClock()))
 	require.NoError(t, err)
-	err = vlt.Setup(mk)
-	require.NoError(t, err)
-	if ck != nil {
-		err = vlt.SetClientKey(ck)
-		require.NoError(t, err)
-	}
 
 	closeFn := func() {
 		err = auth.Close()
@@ -91,6 +83,17 @@ func testVault(t *testing.T, env *testutil.Env, mk *[32]byte, ck *keys.EdX25519K
 		require.NoError(t, err)
 	}
 
+	return vlt, closeFn
+}
+
+func testVaultSetup(t *testing.T, env *testutil.Env, mk *[32]byte, ck *keys.EdX25519Key) (*vault.Vault, func()) {
+	vlt, closeFn := testVault(t, env)
+	err := vlt.Setup(mk)
+	require.NoError(t, err)
+	err = vlt.Unlock(mk)
+	require.NoError(t, err)
+	err = vlt.SetClientKey(ck)
+	require.NoError(t, err)
 	return vlt, closeFn
 }
 

@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log"
 
-	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys-ext/auth/fido2"
 	"github.com/keys-pub/keys-ext/http/client"
 	"github.com/keys-pub/vault"
@@ -49,19 +47,15 @@ func main() {
 
 	// Setup
 	fmt.Println("Setting up with FIDO2 hmac-secret...")
-	if err := vlt.SetupFIDO2HMACSecret(context.TODO(), hs, pin); err != nil {
+	if _, err := vlt.SetupFIDO2HMACSecret(context.TODO(), hs, pin); err != nil {
 		log.Fatal(err)
 	}
 
 	// Unlock
 	fmt.Println("Unlocking with FIDO2 hmac-secret...")
-	if err := vlt.UnlockWithFIDO2HMACSecret(context.TODO(), pin); err != nil {
+	if _, err := vlt.UnlockWithFIDO2HMACSecret(context.TODO(), pin); err != nil {
 		log.Fatal(err)
 	}
 	defer vlt.Lock()
 
-}
-
-func testSeed(b byte) *[32]byte {
-	return keys.Bytes32(bytes.Repeat([]byte{b}, 32))
 }

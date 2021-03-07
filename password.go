@@ -5,15 +5,15 @@ import (
 )
 
 // SetupPassword setup vault with a password.
-func (v *Vault) SetupPassword(password string) error {
+func (v *Vault) SetupPassword(password string) (*[32]byte, error) {
 	mk := keys.Rand32()
 	if _, err := v.auth.RegisterPassword(password, mk); err != nil {
-		return err
+		return nil, err
 	}
 	if err := v.Setup(mk); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return mk, nil
 }
 
 // RegisterPassword adds a password.
@@ -29,13 +29,13 @@ func (v *Vault) RegisterPassword(password string) error {
 }
 
 // UnlockWithPassword opens vault with a password.
-func (v *Vault) UnlockWithPassword(password string) error {
+func (v *Vault) UnlockWithPassword(password string) (*[32]byte, error) {
 	_, mk, err := v.auth.Password(password)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := v.Unlock(mk); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return mk, nil
 }

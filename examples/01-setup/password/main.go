@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"log"
 
-	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys-ext/http/client"
 	"github.com/keys-pub/vault"
 	"github.com/keys-pub/vault/auth"
@@ -26,16 +24,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := vlt.SetupPassword("testpassword"); err != nil {
+	if _, err := vlt.SetupPassword("testpassword"); err != nil {
 		log.Fatal(err)
 	}
 
-	if err := vlt.UnlockWithPassword("testpassword"); err != nil {
+	if _, err := vlt.UnlockWithPassword("testpassword"); err != nil {
 		log.Fatal(err)
 	}
 	defer vlt.Lock()
-}
-
-func testSeed(b byte) *[32]byte {
-	return keys.Bytes32(bytes.Repeat([]byte{b}, 32))
 }

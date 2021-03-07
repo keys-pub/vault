@@ -44,10 +44,10 @@ func NewEnv(t *testing.T, logger server.Logger) *Env {
 }
 
 // NewClient creates a test client.
-func NewClient(t *testing.T, env *Env, collection string) *vault.Client {
-	cl, err := client.New(env.httpServer.URL)
+func NewClient(t *testing.T, env *Env) *vault.Client {
+	cl, err := vault.NewClient(env.httpServer.URL)
 	require.NoError(t, err)
 	cl.SetHTTPClient(env.httpServer.Client())
 	cl.SetClock(env.clock)
-	return vault.NewClient(cl, collection)
+	return cl
 }

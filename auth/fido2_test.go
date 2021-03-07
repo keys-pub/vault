@@ -21,6 +21,9 @@ func gopath(t *testing.T) string {
 }
 
 func TestFIDO2(t *testing.T) {
+	if os.Getenv("TEST_FIDO2") == "" {
+		t.Skip()
+	}
 	path := testPath()
 	db, err := auth.NewDB(path)
 	require.NoError(t, err)

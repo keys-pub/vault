@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"os"
 	"sync"
 	"time"
 
@@ -15,6 +16,9 @@ import (
 
 // ErrLocked if locked.
 var ErrLocked = errors.New("vault is locked")
+
+// ErrInvalidAuth if auth is invalid.
+var ErrInvalidAuth = auth.ErrInvalidAuth
 
 // Vault syncs secrets.
 type Vault struct {
@@ -46,7 +50,7 @@ func New(path string, auth *auth.DB, source Source, opt ...Option) (*Vault, erro
 
 	client := opts.Client
 	if client == nil {
-		c, err := NewClientWithURL("https://keys.pub", "vault")
+		c, err := NewClient("https://keys.pub")
 		if err != nil {
 			return nil, err
 		}
@@ -65,6 +69,16 @@ func New(path string, auth *auth.DB, source Source, opt ...Option) (*Vault, erro
 		auth:   auth,
 		source: source,
 	}, nil
+}
+
+// NeedsSetup returns true if vault database doesn't exist.
+func (v *Vault) NeedsSetup() bool {
+	v.openMtx.Lock()
+	defer v.openMtx.Unlock()
+	if _, err := os.Stat(v.path); os.IsNotExist(err) {
+		return true
+	}
+	return false
 }
 
 // Setup vault.

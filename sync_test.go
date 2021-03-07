@@ -20,7 +20,7 @@ func TestSync(t *testing.T) {
 	ck := keys.NewEdX25519KeyFromSeed(testSeed(0x01))
 
 	// Client #1
-	v1, closeFn1 := testVault(t, env, testSeed(0x01), ck)
+	v1, closeFn1 := testVaultSetup(t, env, testSeed(0x01), ck)
 	defer closeFn1()
 
 	status, err := v1.SyncStatus()
@@ -48,7 +48,7 @@ func TestSync(t *testing.T) {
 	require.NoError(t, err)
 
 	// Client #2
-	v2, closeFn2 := testVault(t, env, testSeed(0x02), ck)
+	v2, closeFn2 := testVaultSetup(t, env, testSeed(0x02), ck)
 	defer closeFn2()
 
 	err = v2.Add(&Message{Text: "meet at 3pm?"})
