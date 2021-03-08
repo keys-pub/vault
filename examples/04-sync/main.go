@@ -11,18 +11,12 @@ import (
 	"github.com/keys-pub/vault"
 	"github.com/keys-pub/vault/auth"
 	"github.com/pkg/errors"
-	"github.com/vmihailenco/msgpack/v4"
 )
 
 // Message to store in vault.
 type Message struct {
 	ID   string `msgpack:"id"`
 	Text string `msgpack:"text"`
-}
-
-// MarshalVault how to marshal for vault.
-func (m *Message) MarshalVault() ([]byte, error) {
-	return msgpack.Marshal(m)
 }
 
 func main() {

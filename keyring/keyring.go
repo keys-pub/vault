@@ -1,6 +1,8 @@
 package keyring
 
 import (
+	"database/sql"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys/api"
@@ -16,9 +18,9 @@ type Keyring struct {
 }
 
 // New keyring vault.
-func New(path string, auth *auth.DB) (*Keyring, error) {
+func New(path string, auth *auth.DB, opt ...vault.Option) (*Keyring, error) {
 	src := &source{}
-	vlt, err := vault.New(path, auth, src)
+	vlt, err := vault.New(path, auth, src, opt...)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +39,10 @@ func (s *source) Init(db *sqlx.DB) error {
 			private BLOB,
 			public BLOB,
 			createdAt INTEGER,
-			updatedAt INTEGER
+			updatedAt INTEGER,
+			labels TEXT,
+			notes TEXT,
+			token TEXT	
 		);`,
 		// TODO: Indexes
 	}
@@ -50,9 +55,21 @@ func (s *source) Init(db *sqlx.DB) error {
 }
 
 // Receive (vault.Source)
-func (s *source) Receive(tx *sqlx.Tx, event *vault.Event) error {
-	var key api.Key
-	if err := msgpack.Unmarshal(event.Data, key); err != nil {
+func (s *source) Receive(tx *sqlx.Tx, events []*vault.Event) error {
+	keys := make([]*api.Key, 0, len(events))
+	for _, event := range events {
+		var key api.Key
+		if err := msgpack.Unmarshal(event.Data, &key); err != nil {
+			return err
+		}
+		keys = append(keys, &key)
+	}
+	return insert(tx, keys)
+}
+
+func insert(tx *sqlx.Tx, keys []*api.Key) error {
+	if _, err := tx.NamedExec(`INSERT OR REPLACE INTO keys VALUES 
+		(:id, :type, :private, :public, :createdAt, :updatedAt, :labels, :notes, :token)`, keys); err != nil {
 		return err
 	}
 	return nil
@@ -60,21 +77,17 @@ func (s *source) Receive(tx *sqlx.Tx, event *vault.Event) error {
 
 // Get key from vault.
 func (k *Keyring) Get(id keys.ID) (*api.Key, error) {
-	// b, err := v.Vault.Get(id.String())
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if b == nil {
-	// 	return nil, nil
-	// }
-
-	// key, err := unmarshalKey(b)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// return key, nil
-	return nil, errors.Errorf("not implemented")
+	if k.DB() == nil {
+		return nil, vault.ErrLocked
+	}
+	var key api.Key
+	if err := k.DB().Get(&key, "SELECT * FROM keys WHERE id = $1", id); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &key, nil
 }
 
 // Save key to vault.
@@ -82,22 +95,20 @@ func (k *Keyring) Save(key *api.Key) error {
 	if key == nil {
 		return errors.Errorf("nil key")
 	}
-
 	if key.ID == "" {
 		return errors.Errorf("no key id")
 	}
 
-	if err := k.Add(vaultKey{key}); err != nil {
-		return err
+	db := k.DB()
+	if db == nil {
+		return vault.ErrLocked
 	}
 
-	return nil
-}
-
-type vaultKey struct {
-	*api.Key
-}
-
-func (k vaultKey) MarshalVault() ([]byte, error) {
-	return msgpack.Marshal(k)
+	fn := func(tx *sqlx.Tx) error {
+		if err := insert(tx, []*api.Key{key}); err != nil {
+			return err
+		}
+		return vault.Add(tx, key)
+	}
+	return vault.TransactDB(db, fn)
 }

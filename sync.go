@@ -162,10 +162,8 @@ func (v *Vault) pullNext(ctx context.Context) (bool, error) {
 }
 
 func (v *Vault) applyPull(events *Events) error {
-	for _, event := range events.Events {
-		if err := v.setPull(event); err != nil {
-			return errors.Wrapf(err, "failed to apply pull")
-		}
+	if err := v.setPull(events.Events); err != nil {
+		return errors.Wrapf(err, "failed to apply pull")
 	}
 	return nil
 }
@@ -250,7 +248,7 @@ func (v *Vault) reset(ctx context.Context) error {
 	}
 
 	// Reset push and config.
-	return transactDB(v.db, func(tx *sqlx.Tx) error {
+	return TransactDB(v.db, func(tx *sqlx.Tx) error {
 		if err := resetPushTx(tx); err != nil {
 			return err
 		}

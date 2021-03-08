@@ -1,10 +1,7 @@
 package vault_test
 
 import (
-	"bytes"
-	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/keys-pub/keys"
@@ -13,7 +10,6 @@ import (
 	"github.com/keys-pub/vault/auth"
 	"github.com/keys-pub/vault/testutil"
 	"github.com/stretchr/testify/require"
-	"github.com/vmihailenco/msgpack/v4"
 )
 
 func TestVaultSetup(t *testing.T) {
@@ -52,19 +48,11 @@ func TestVaultInvalidPassword(t *testing.T) {
 	require.EqualError(t, err, "invalid auth")
 }
 
-func testPath() string {
-	return filepath.Join(os.TempDir(), fmt.Sprintf("%s.db", keys.RandFileName()))
-}
-
-func testSeed(b byte) *[32]byte {
-	return keys.Bytes32(bytes.Repeat([]byte{b}, 32))
-}
-
 func testVault(t *testing.T, env *testutil.Env) (*vault.Vault, func()) {
 	var err error
 	client := testutil.NewClient(t, env)
-	path := testPath()
-	authPath := testPath()
+	path := testutil.Path()
+	authPath := testutil.Path()
 
 	auth, err := auth.NewDB(authPath)
 	require.NoError(t, err)
@@ -100,9 +88,4 @@ func testVaultSetup(t *testing.T, env *testutil.Env, mk *[32]byte, ck *keys.EdX2
 // Message to store in vault.
 type Message struct {
 	Text string `msgpack:"text"`
-}
-
-// MarshalVault how to marshal for vault.
-func (m *Message) MarshalVault() ([]byte, error) {
-	return msgpack.Marshal(m)
 }

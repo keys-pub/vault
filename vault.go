@@ -94,11 +94,14 @@ func (v *Vault) Setup(mk *[32]byte) error {
 	if err != nil {
 		return err
 	}
+	defer db.Close()
 	if err := initDB(db, true); err != nil {
 		return err
 	}
-	if err := db.Close(); err != nil {
-		return err
+	if v.source != nil {
+		if err := v.source.Init(db); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -121,6 +124,12 @@ func (v *Vault) Unlock(mk *[32]byte) error {
 	if err := initDB(db, false); err != nil {
 		_ = db.Close()
 		return err
+	}
+	if v.source != nil {
+		if err := v.source.Init(db); err != nil {
+			_ = db.Close()
+			return err
+		}
 	}
 
 	v.db = db
@@ -149,22 +158,13 @@ func (v *Vault) Lock() error {
 	return nil
 }
 
-// Marshaler ..
-type Marshaler interface {
-	MarshalVault() (b []byte, err error)
-}
-
-// Add data.
+// Add to vault.
 // Requires Unlock.
-func (v *Vault) Add(m Marshaler) error {
+func (v *Vault) Add(i interface{}) error {
 	if v.db == nil {
 		return ErrLocked
 	}
-	b, err := m.MarshalVault()
-	if err != nil {
-		return err
-	}
-	if err := v.add(b); err != nil {
+	if err := v.add(i); err != nil {
 		return errors.Wrapf(err, "failed to add")
 	}
 	return nil

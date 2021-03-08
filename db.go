@@ -8,6 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
 	"github.com/pkg/errors"
+	"github.com/vmihailenco/msgpack/v4"
 
 	// For sqlite3 (sqlcipher driver)
 	_ "github.com/mutecomm/go-sqlcipher/v4"
@@ -82,8 +83,8 @@ func initTables(db *sqlx.DB) error {
 	return nil
 }
 
-// transact creates and executes a transaction.
-func transactDB(db *sqlx.DB, txFn func(*sqlx.Tx) error) (err error) {
+// TransactDB creates and executes a transaction.
+func TransactDB(db *sqlx.DB, txFn func(*sqlx.Tx) error) (err error) {
 	if db == nil {
 		return ErrLocked
 	}
@@ -110,13 +111,18 @@ type push struct {
 	Data []byte `db:"data"`
 }
 
-func (v *Vault) add(data []byte) error {
-	fn := func(tx *sqlx.Tx) error { return add(tx, data) }
-	return transactDB(v.db, fn)
+func (v *Vault) add(i interface{}) error {
+	fn := func(tx *sqlx.Tx) error { return Add(tx, i) }
+	return TransactDB(v.db, fn)
 }
 
-func add(tx *sqlx.Tx, data []byte) error {
-	if _, err := tx.Exec("INSERT INTO push (data) VALUES ($1)", data); err != nil {
+// Add to vault.
+func Add(tx *sqlx.Tx, i interface{}) error {
+	b, err := msgpack.Marshal(i)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec("INSERT INTO push (data) VALUES ($1)", b); err != nil {
 		return err
 	}
 	return nil
@@ -138,7 +144,7 @@ func (v *Vault) clearPush(id int64) error {
 }
 
 func (v *Vault) resetPush() error {
-	return transactDB(v.db, resetPushTx)
+	return TransactDB(v.db, resetPushTx)
 }
 
 func resetPushTx(tx *sqlx.Tx) error {
@@ -177,12 +183,22 @@ func resetPushTx(tx *sqlx.Tx) error {
 	return nil
 }
 
-func (v *Vault) setPull(event *Event) error {
-	return transactDB(v.db, func(tx *sqlx.Tx) error { return setPullTx(tx, event) })
+func (v *Vault) setPull(events []*Event) error {
+	return TransactDB(v.db, func(tx *sqlx.Tx) error {
+		if err := setPullTx(tx, events); err != nil {
+			return err
+		}
+		if v.source != nil {
+			if err := v.source.Receive(tx, events); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
-func setPullTx(tx *sqlx.Tx, event *Event) error {
-	if _, err := tx.NamedExec("INSERT OR REPLACE INTO pull (data, ridx, rts) VALUES (:data, :ridx, :rts)", event); err != nil {
+func setPullTx(tx *sqlx.Tx, events []*Event) error {
+	if _, err := tx.NamedExec("INSERT OR REPLACE INTO pull (data, ridx, rts) VALUES (:data, :ridx, :rts)", events); err != nil {
 		return err
 	}
 	return nil

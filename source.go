@@ -6,7 +6,7 @@ import "github.com/jmoiron/sqlx"
 // received from the remote.
 type Source interface {
 	Init(db *sqlx.DB) error
-	Receive(tx *sqlx.Tx, event *Event) error
+	Receive(tx *sqlx.Tx, event []*Event) error
 }
 
 type emptySource struct{}
@@ -15,6 +15,6 @@ func (s emptySource) Init(db *sqlx.DB) error {
 	return nil
 }
 
-func (s emptySource) Receive(tx *sqlx.Tx, event *Event) error {
+func (s emptySource) Receive(tx *sqlx.Tx, events []*Event) error {
 	return nil
 }

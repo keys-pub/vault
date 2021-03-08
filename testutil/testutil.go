@@ -1,9 +1,14 @@
 package testutil
 
 import (
+	"bytes"
+	"fmt"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys-ext/http/client"
 	"github.com/keys-pub/keys-ext/http/server"
 	"github.com/keys-pub/keys/dstore"
@@ -50,4 +55,14 @@ func NewClient(t *testing.T, env *Env) *vault.Client {
 	cl.SetHTTPClient(env.httpServer.Client())
 	cl.SetClock(env.clock)
 	return cl
+}
+
+// Path ...
+func Path() string {
+	return filepath.Join(os.TempDir(), fmt.Sprintf("%s.db", keys.RandFileName()))
+}
+
+// Seed ...
+func Seed(b byte) *[32]byte {
+	return keys.Bytes32(bytes.Repeat([]byte{b}, 32))
 }
