@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
+	"github.com/keys-pub/keys/api"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v4"
 
@@ -26,37 +27,6 @@ func openDB(path string, mk *[32]byte) (*sqlx.DB, error) {
 	return db, nil
 }
 
-func initDB(db *sqlx.DB, setup bool) error {
-	if err := initTables(db); err != nil {
-		return err
-	}
-	if setup {
-		logger.Debugf("Setting up...")
-		existing, err := clientKey(db)
-		if err != nil {
-			return err
-		}
-		if existing != nil {
-			return errors.Errorf("already setup")
-		}
-
-		ck := keys.NewEdX25519KeyFromSeed(keys.Rand32())
-		if err := setClientKey(db, ck); err != nil {
-			return err
-		}
-	} else {
-		logger.Debugf("Checking setup...")
-		ck, err := clientKey(db)
-		if err != nil {
-			return err
-		}
-		if ck == nil {
-			return errors.Errorf("needs setup")
-		}
-	}
-	return nil
-}
-
 func initTables(db *sqlx.DB) error {
 	logger.Debugf("Initializing tables...")
 	stmts := []string{
@@ -65,13 +35,26 @@ func initTables(db *sqlx.DB) error {
 			value TEXT NOT NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS push (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			data BLOB NOT NULL
+			idx INTEGER PRIMARY KEY AUTOINCREMENT,
+			data BLOB NOT NULL,
+			vid TEXT NOT NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS pull (						
-			data BLOB NOT NULL,
 			ridx INTEGER PRIMARY KEY NOT NULL,
-			rts TIMESTAMP NOT NULL
+			data BLOB NOT NULL,			
+			rts TIMESTAMP NOT NULL,
+			vid TEXT NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS keys (
+			id TEXT PRIMARY KEY NOT NULL,
+			type TEXT NOT NULL,
+			private BLOB,
+			public BLOB,
+			token TEXT,	
+			createdAt INTEGER,
+			updatedAt INTEGER,
+			notes TEXT,
+			labels TEXT
 		);`,
 		// TODO: Indexes
 	}
@@ -107,121 +90,232 @@ func TransactDB(db *sqlx.DB, txFn func(*sqlx.Tx) error) (err error) {
 }
 
 type push struct {
-	ID   int64  `db:"id"`
-	Data []byte `db:"data"`
+	Index int64   `db:"idx"`
+	Data  []byte  `db:"data"`
+	VID   keys.ID `db:"vid"`
 }
 
-func (v *Vault) add(i interface{}) error {
-	fn := func(tx *sqlx.Tx) error { return Add(tx, i) }
-	return TransactDB(v.db, fn)
+func add(db *sqlx.DB, vid keys.ID, b []byte) error {
+	fn := func(tx *sqlx.Tx) error { return Add(tx, vid, b) }
+	return TransactDB(db, fn)
 }
 
 // Add to vault.
-func Add(tx *sqlx.Tx, i interface{}) error {
-	b, err := msgpack.Marshal(i)
-	if err != nil {
-		return err
-	}
-	if _, err := tx.Exec("INSERT INTO push (data) VALUES ($1)", b); err != nil {
+func Add(tx *sqlx.Tx, vid keys.ID, b []byte) error {
+	logger.Debugf("Adding to push %s", vid)
+	if _, err := tx.Exec("INSERT INTO push (vid, data) VALUES ($1, $2)", vid, b); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (v *Vault) listPush(max int) ([]*push, error) {
+func listPush(db *sqlx.DB, vid keys.ID, max int) ([]*push, error) {
 	var pushes []*push
-	if err := v.db.Select(&pushes, "SELECT * FROM push ORDER BY id LIMIT $1", max); err != nil {
+	if err := db.Select(&pushes, "SELECT * FROM push WHERE vid = ? ORDER BY idx LIMIT $1", vid, max); err != nil {
 		return nil, err
 	}
 	return pushes, nil
 }
 
-func (v *Vault) clearPush(id int64) error {
-	if _, err := v.db.Exec("DELETE FROM push WHERE id <= $1", id); err != nil {
+func clearPush(db *sqlx.DB, id int64) error {
+	if _, err := db.Exec("DELETE FROM push WHERE idx <= $1", id); err != nil {
 		return err
 	}
 	return nil
-}
-
-func (v *Vault) resetPush() error {
-	return TransactDB(v.db, resetPushTx)
-}
-
-func resetPushTx(tx *sqlx.Tx) error {
-	var pushes []*push
-	if err := tx.Select(&pushes, "SELECT * FROM push ORDER BY id"); err != nil {
-		return err
-	}
-
-	var pulls []*Event
-	if err := tx.Select(&pulls, "SELECT * FROM pull"); err != nil {
-		if err == sql.ErrNoRows {
-			return nil
-		}
-		return err
-	}
-	if len(pulls) == 0 {
-		return nil
-	}
-
-	if _, err := tx.Exec("DELETE FROM push"); err != nil {
-		return err
-	}
-
-	for _, p := range pulls {
-		if _, err := tx.Exec("INSERT INTO push (data) VALUES ($1)", p.Data); err != nil {
-			return err
-		}
-	}
-
-	for _, p := range pushes {
-		if _, err := tx.Exec("INSERT INTO push (data) VALUES ($1)", p.Data); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (v *Vault) setPull(events []*Event) error {
-	return TransactDB(v.db, func(tx *sqlx.Tx) error {
-		if err := setPullTx(tx, events); err != nil {
-			return err
-		}
-		if v.source != nil {
-			if err := v.source.Receive(tx, events); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
 }
 
 func setPullTx(tx *sqlx.Tx, events []*Event) error {
-	if _, err := tx.NamedExec("INSERT OR REPLACE INTO pull (data, ridx, rts) VALUES (:data, :ridx, :rts)", events); err != nil {
+	if _, err := tx.NamedExec("INSERT OR REPLACE INTO pull (data, ridx, rts, vid) VALUES (:data, :ridx, :rts, :vid)", events); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (v *Vault) listPull(from int64) ([]*Event, error) {
-	var pulls []*Event
-	if err := v.db.Select(&pulls, "SELECT * FROM pull WHERE ridx > $1 ORDER BY ridx", from); err != nil {
+// func listPull(db *sqlx.DB, from int64) ([]*Event, error) {
+// 	var pulls []*Event
+// 	if err := db.Select(&pulls, "SELECT * FROM pull WHERE ridx > $1 ORDER BY ridx", from); err != nil {
+// 		if err == sql.ErrNoRows {
+// 			return nil, nil
+// 		}
+// 		return nil, err
+// 	}
+// 	return pulls, nil
+// }
+
+func pullIndex(db *sqlx.DB, vid keys.ID) (int64, error) {
+	var pull struct {
+		Index sql.NullInt64 `db:"ridx"`
+	}
+	if err := db.Get(&pull, "SELECT MAX(ridx) as ridx FROM pull WHERE vid = ?", vid); err != nil {
+		return 0, err
+	}
+	if pull.Index.Valid {
+		return pull.Index.Int64, nil
+	}
+	return 0, nil
+}
+
+func pullIndexes(db *sqlx.DB) (map[keys.ID]int64, error) {
+	logger.Debugf("Pull indexes...")
+	type pullIndex struct {
+		VID   sql.NullString `db:"vid"`
+		Index sql.NullInt64  `db:"ridx"`
+	}
+	var pis []*pullIndex
+	if err := db.Select(&pis, "SELECT vid, MAX(ridx) as ridx FROM pull"); err != nil {
+		return nil, err
+	}
+	m := map[keys.ID]int64{}
+	for _, pi := range pis {
+		if pi.VID.Valid && pi.Index.Valid {
+			m[keys.ID(pi.VID.String)] = pi.Index.Int64
+		}
+	}
+	return m, nil
+}
+
+func saveKey(db *sqlx.DB, vid keys.ID, key *api.Key) error {
+	return TransactDB(db, func(tx *sqlx.Tx) error {
+		return saveKeyTx(tx, vid, key)
+	})
+}
+
+func saveKeyTx(tx *sqlx.Tx, vid keys.ID, key *api.Key) error {
+	logger.Debugf("Saving key %s", key.ID)
+	b, err := msgpack.Marshal(key)
+	if err != nil {
+		return err
+	}
+	if err := Add(tx, vid, b); err != nil {
+		return err
+	}
+	return updateKeyTx(tx, key)
+}
+
+func updateKey(db *sqlx.DB, key *api.Key) error {
+	return TransactDB(db, func(tx *sqlx.Tx) error {
+		return updateKeyTx(tx, key)
+	})
+}
+
+func updateKeyTx(tx *sqlx.Tx, key *api.Key) error {
+	logger.Debugf("Update key %s", key.ID)
+	if _, err := tx.NamedExec(`INSERT OR REPLACE INTO keys VALUES 
+		(:id, :type, :private, :public, :token, :createdAt, :updatedAt, :notes, :labels)`, key); err != nil {
+		return err
+	}
+	return nil
+}
+
+func getKey(db *sqlx.DB, kid keys.ID) (*api.Key, error) {
+	var key api.Key
+	if err := db.Get(&key, "SELECT * FROM keys WHERE id = $1", kid); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
-	return pulls, nil
+	return &key, nil
 }
 
-func (v *Vault) pullIndex() (int64, error) {
-	var idx sql.NullInt64
-	if err := v.db.Get(&idx, "SELECT MAX(ridx) FROM pull"); err != nil {
-		return -1, err
+func getKeyWithLabel(db *sqlx.DB, label string) (*api.Key, error) {
+	var key api.Key
+	sqlLabel := "%^" + label + "$%"
+	if err := db.Get(&key, "SELECT * FROM keys WHERE labels LIKE $1", sqlLabel); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
 	}
-	if !idx.Valid {
-		return -1, nil
-	}
-	return idx.Int64, nil
+	return &key, nil
 }
+
+func getKeysWithLabel(db *sqlx.DB, label string) ([]*api.Key, error) {
+	logger.Debugf("Get keys with label %q", label)
+	var out []*api.Key
+	sqlLabel := "%^" + label + "$%"
+	if err := db.Select(&out, "SELECT * FROM keys WHERE labels LIKE $1", sqlLabel); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return out, nil
+}
+
+func getKeys(db *sqlx.DB) ([]*api.Key, error) {
+	var vks []*api.Key
+	if err := db.Select(&vks, "SELECT * FROM keys ORDER BY id"); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return vks, nil
+}
+
+// func getKeysByType(db *sqlx.DB, typ string) ([]*api.Key, error) {
+// 	var vks []*api.Key
+// 	if err := db.Select(&vks, "SELECT * FROM keys WHERE type = $1 ORDER BY id", typ); err != nil {
+// 		if err == sql.ErrNoRows {
+// 			return nil, nil
+// 		}
+// 		return nil, err
+// 	}
+// 	return vks, nil
+// }
+
+func getTokens(db *sqlx.DB) ([]*Token, error) {
+	var vks []*api.Key
+	if err := db.Select(&vks, "SELECT * FROM keys WHERE type = $1 AND token != $2", "edx25519", ""); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	out := []*Token{}
+	for _, k := range vks {
+		out = append(out, &Token{KID: k.ID, Token: k.Token})
+	}
+	return out, nil
+}
+
+// func resetPush(db *sqlx.DB) error {
+// 	return TransactDB(db, resetPushTx)
+// }
+
+// func resetPushTx(tx *sqlx.Tx) error {
+// 	var pushes []*push
+// 	if err := tx.Select(&pushes, "SELECT * FROM push ORDER BY idx"); err != nil {
+// 		return err
+// 	}
+
+// 	var pulls []*Event
+// 	if err := tx.Select(&pulls, "SELECT * FROM pull"); err != nil {
+// 		if err == sql.ErrNoRows {
+// 			return nil
+// 		}
+// 		return err
+// 	}
+// 	if len(pulls) == 0 {
+// 		return nil
+// 	}
+
+// 	if _, err := tx.Exec("DELETE FROM push"); err != nil {
+// 		return err
+// 	}
+
+// 	for _, p := range pulls {
+// 		if _, err := tx.Exec("INSERT INTO push (vid, data) VALUES ($1, $2)", p.VID, p.Data); err != nil {
+// 			return err
+// 		}
+// 	}
+
+// 	for _, p := range pushes {
+// 		if _, err := tx.Exec("INSERT INTO push (vid, data) VALUES ($1, $2)", p.VID, p.Data); err != nil {
+// 			return err
+// 		}
+// 	}
+
+// 	return nil
+// }

@@ -1,7 +1,9 @@
 package vault_test
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/keys-pub/keys"
@@ -57,7 +59,7 @@ func testVault(t *testing.T, env *testutil.Env) (*vault.Vault, func()) {
 	auth, err := auth.NewDB(authPath)
 	require.NoError(t, err)
 
-	vlt, err := vault.New(path, auth, nil, vault.WithClient(client), vault.WithClock(tsutil.NewTestClock()))
+	vlt, err := vault.New(path, auth, vault.WithClient(client), vault.WithClock(tsutil.NewTestClock()))
 	require.NoError(t, err)
 
 	closeFn := func() {
@@ -74,18 +76,15 @@ func testVault(t *testing.T, env *testutil.Env) (*vault.Vault, func()) {
 	return vlt, closeFn
 }
 
-func testVaultSetup(t *testing.T, env *testutil.Env, mk *[32]byte, ck *keys.EdX25519Key) (*vault.Vault, func()) {
+func testVaultSetup(t *testing.T, env *testutil.Env, mk *[32]byte, key *keys.EdX25519Key) (*vault.Vault, func()) {
 	vlt, closeFn := testVault(t, env)
-	err := vlt.Setup(mk)
+	err := vlt.Setup(mk, vault.WithClientKey(key))
 	require.NoError(t, err)
 	err = vlt.Unlock(mk)
-	require.NoError(t, err)
-	err = vlt.SetClientKey(ck)
 	require.NoError(t, err)
 	return vlt, closeFn
 }
 
-// Message to store in vault.
-type Message struct {
-	Text string `msgpack:"text"`
+func testPath() string {
+	return filepath.Join(os.TempDir(), fmt.Sprintf("%s.db", keys.RandFileName()))
 }

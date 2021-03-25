@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 
-	"github.com/keys-pub/keys-ext/http/client"
 	"github.com/keys-pub/vault"
 	"github.com/keys-pub/vault/auth"
 )
@@ -11,7 +10,6 @@ import (
 func main() {
 	logger := vault.NewLogger(vault.DebugLevel)
 	vault.SetLogger(logger)
-	client.SetLogger(logger)
 
 	auth, err := auth.NewDB("/tmp/auth.db")
 	if err != nil {
@@ -19,7 +17,7 @@ func main() {
 	}
 	defer auth.Close()
 
-	vlt, err := vault.New("/tmp/vault.db", auth, nil)
+	vlt, err := vault.New("/tmp/vault.db", auth)
 	if err != nil {
 		log.Fatal(err)
 	}

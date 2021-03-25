@@ -1,13 +1,14 @@
 package vault
 
 import (
+	"context"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys-ext/auth/fido2"
+	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/keys/tsutil"
 	"github.com/keys-pub/vault/auth"
 
@@ -28,24 +29,23 @@ type Vault struct {
 	clock  tsutil.Clock
 	client *Client
 
-	source Source
-
 	auth *auth.DB
 
 	fido2Plugin fido2.FIDO2Server
 
-	openMtx sync.Mutex
+	// checkedAt time.Time
+	// checkMtx  sync.Mutex
 
-	checkedAt time.Time
-	checkMtx  sync.Mutex
-
-	// Master key if unlocked.
+	// Main secret key if unlocked.
 	// TODO: Let's clear this after some time
 	mk *[32]byte
+
+	ck *api.Key
+	kr *Keyring
 }
 
 // New vault.
-func New(path string, auth *auth.DB, source Source, opt ...Option) (*Vault, error) {
+func New(path string, auth *auth.DB, opt ...Option) (*Vault, error) {
 	opts := newOptions(opt...)
 
 	client := opts.Client
@@ -58,23 +58,17 @@ func New(path string, auth *auth.DB, source Source, opt ...Option) (*Vault, erro
 	}
 
 	clock := tsutil.NewClock()
-	if source == nil {
-		source = emptySource{}
-	}
 
 	return &Vault{
 		path:   path,
 		client: client,
 		clock:  clock,
 		auth:   auth,
-		source: source,
 	}, nil
 }
 
 // NeedsSetup returns true if vault database doesn't exist.
 func (v *Vault) NeedsSetup() bool {
-	v.openMtx.Lock()
-	defer v.openMtx.Unlock()
 	if _, err := os.Stat(v.path); os.IsNotExist(err) {
 		return true
 	}
@@ -83,33 +77,48 @@ func (v *Vault) NeedsSetup() bool {
 
 // Setup vault.
 // Doesn't unlock.
-func (v *Vault) Setup(mk *[32]byte) error {
-	v.openMtx.Lock()
-	defer v.openMtx.Unlock()
+func (v *Vault) Setup(mk *[32]byte, opt ...SetupOption) error {
+	logger.Debugf("Setup...")
 	if v.db != nil {
 		return errors.Errorf("already unlocked")
 	}
+	opts := newSetupOptions(opt...)
 
 	db, err := openDB(v.path, mk)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
-	if err := initDB(db, true); err != nil {
+	onErrFn := func() {
+		_ = db.Close()
+	}
+
+	if err := initTables(db); err != nil {
+		onErrFn()
 		return err
 	}
-	if v.source != nil {
-		if err := v.source.Init(db); err != nil {
-			return err
-		}
+
+	// Generate or import client key
+	var ck *api.Key
+	var kerr error
+	if opts.ClientKey != nil {
+		ck, kerr = importClientKey(db, opts.ClientKey, v.clock)
+	} else {
+		key := keys.GenerateEdX25519Key()
+		ck, kerr = importClientKey(db, key, v.clock)
 	}
+	if kerr != nil {
+		onErrFn()
+		return kerr
+	}
+
+	v.unlocked(mk, ck, db)
+
+	logger.Debugf("Setup complete")
 	return nil
 }
 
 // Unlock vault.
 func (v *Vault) Unlock(mk *[32]byte) error {
-	v.openMtx.Lock()
-	defer v.openMtx.Unlock()
 	logger.Debugf("Unlock...")
 
 	if v.db != nil {
@@ -121,26 +130,47 @@ func (v *Vault) Unlock(mk *[32]byte) error {
 	if err != nil {
 		return err
 	}
-	if err := initDB(db, false); err != nil {
+	onErrFn := func() {
 		_ = db.Close()
-		return err
-	}
-	if v.source != nil {
-		if err := v.source.Init(db); err != nil {
-			_ = db.Close()
-			return err
-		}
 	}
 
-	v.db = db
-	v.mk = mk
+	if err := initTables(db); err != nil {
+		onErrFn()
+		return err
+	}
+
+	ck, err := getKeyWithLabel(db, "main")
+	if err != nil {
+		onErrFn()
+		return err
+	}
+	if ck == nil {
+		onErrFn()
+		return errors.Errorf("needs setup")
+	}
+
+	v.unlocked(mk, ck, db)
+
+	logger.Debugf("Unlocked")
 	return nil
+}
+
+func (v *Vault) unlocked(mk *[32]byte, ck *api.Key, db *sqlx.DB) {
+	v.mk = mk
+	v.ck = ck
+	v.db = db
+	v.kr = &Keyring{db, ck, v.client, v.clock}
+}
+
+func (v *Vault) locked() {
+	v.db = nil
+	v.mk = nil
+	v.ck = nil
+	v.kr = nil
 }
 
 // Lock vault.
 func (v *Vault) Lock() error {
-	v.openMtx.Lock()
-	defer v.openMtx.Unlock()
 	logger.Debugf("Locking...")
 
 	if v.db == nil {
@@ -148,8 +178,7 @@ func (v *Vault) Lock() error {
 		return nil
 	}
 	db := v.db
-	v.db = nil
-	v.mk = nil
+	v.locked()
 
 	if err := db.Close(); err != nil {
 		return errors.Wrapf(err, "failed to close db")
@@ -159,12 +188,24 @@ func (v *Vault) Lock() error {
 }
 
 // Add to vault.
+// The `vid` is a vault identifier.
+// You can create a vault using Create.
 // Requires Unlock.
-func (v *Vault) Add(i interface{}) error {
+func (v *Vault) Add(vid keys.ID, b []byte) error {
 	if v.db == nil {
 		return ErrLocked
 	}
-	if err := v.add(i); err != nil {
+	key, err := v.Keyring().Key(vid)
+	if err != nil {
+		return err
+	}
+	if key == nil {
+		return errors.Wrapf(keys.NewErrNotFound((vid.String())), "failed to add")
+	}
+	if !key.HasLabel("vault") {
+		return errors.Errorf("not a vault key")
+	}
+	if err := add(v.db, vid, b); err != nil {
 		return errors.Wrapf(err, "failed to add")
 	}
 	return nil
@@ -172,42 +213,39 @@ func (v *Vault) Add(i interface{}) error {
 
 // Event pulled from remote.
 type Event struct {
-	Data            []byte    `msgpack:"data" db:"data"`
-	RemoteIndex     int64     `msgpack:"-" db:"ridx"`
-	RemoteTimestamp time.Time `msgpack:"-" db:"rts"`
+	Data            []byte    `db:"data"`
+	RemoteIndex     int64     `db:"ridx"`
+	RemoteTimestamp time.Time `db:"rts"`
+	VID             keys.ID   `db:"vid"`
 }
 
-// Pulled ...
-func (v *Vault) Pulled(from int64) ([]*Event, error) {
-	if v.db == nil {
-		return nil, ErrLocked
-	}
-	events, err := v.listPull(from)
-	if err != nil {
-		return nil, err
-	}
-	return events, nil
-}
-
-// SetClientKey sets the client key.
+// Create a vault.
 // Requires Unlock.
-func (v *Vault) SetClientKey(key *keys.EdX25519Key) error {
+func (v *Vault) Create(ctx context.Context, key *keys.EdX25519Key) error {
 	if v.db == nil {
 		return ErrLocked
 	}
-	if err := setClientKey(v.db, key); err != nil {
+	vk := api.NewKey(key).WithLabels("vault").Created(v.clock.NowMillis())
+	token, err := v.client.Create(ctx, key)
+	if err != nil {
 		return err
 	}
+	vk.Token = token
+
+	if err := saveKey(v.db, v.ck.ID, vk); err != nil {
+		return err
+	}
+
+	if err = v.kr.Sync(ctx); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// ClientKey returns the client key.
-// Requires Unlock.
-func (v *Vault) ClientKey() (*keys.EdX25519Key, error) {
-	if v.db == nil {
-		return nil, ErrLocked
-	}
-	return clientKey(v.db)
+// Keyring for keys in vault.
+func (v *Vault) Keyring() *Keyring {
+	return v.kr
 }
 
 // DB returns underlying database if vault is open.
@@ -217,4 +255,31 @@ func (v *Vault) DB() *sqlx.DB {
 		return nil
 	}
 	return v.db
+}
+
+// ClientKey is the vault client key.
+func (v *Vault) ClientKey() (*api.Key, error) {
+	ck, err := getKeyWithLabel(v.db, "client")
+	if err != nil {
+		return nil, err
+	}
+	return ck, nil
+}
+
+func importClientKey(db *sqlx.DB, key *keys.EdX25519Key, clock tsutil.Clock) (*api.Key, error) {
+	logger.Debugf("Import client key...")
+	ck, err := getKeyWithLabel(db, "client")
+	if err != nil {
+		return nil, err
+	}
+	if ck != nil {
+		return nil, errors.Errorf("already setup")
+	}
+	ck = api.NewKey(key).WithLabels("client", "vault")
+	ck.CreatedAt = clock.NowMillis()
+	ck.UpdatedAt = clock.NowMillis()
+	if err := updateKey(db, ck); err != nil {
+		return nil, err
+	}
+	return ck, nil
 }

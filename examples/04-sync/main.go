@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/keys-pub/keys"
-	"github.com/keys-pub/keys-ext/http/client"
+	"github.com/keys-pub/keys/api"
+	"github.com/keys-pub/keys/tsutil"
 	"github.com/keys-pub/vault"
 	"github.com/keys-pub/vault/auth"
 	"github.com/pkg/errors"
@@ -22,7 +23,6 @@ type Message struct {
 func main() {
 	logger := vault.NewLogger(vault.DebugLevel)
 	vault.SetLogger(logger)
-	client.SetLogger(logger)
 
 	auth, err := auth.NewDB("/tmp/auth.db")
 	if err != nil {
@@ -30,7 +30,7 @@ func main() {
 	}
 	defer auth.Close()
 
-	vlt, err := vault.New("/tmp/vault.db", auth, nil)
+	vlt, err := vault.New("/tmp/vault.db", auth)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -40,31 +40,23 @@ func main() {
 	}
 	defer vlt.Lock()
 
-	status, err := vlt.SyncStatus()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Status: %v\n", status)
-
-	msg := &Message{ID: keys.RandBase62(16), Text: keys.RandPhrase()}
-	fmt.Printf("Adding message: %v\n", msg)
-	if err := vlt.Add(msg); err != nil {
+	alice := api.NewKey(keys.GenerateEdX25519Key()).WithLabels("test").Created(tsutil.NowMillis())
+	if err := vlt.Keyring().Set(alice); err != nil {
 		log.Fatal(err)
 	}
 
 	start := time.Now()
-	err = vlt.Sync(context.TODO())
+	err = vlt.Keyring().Sync(context.TODO())
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Sync took %s\n", time.Since(start))
 
-	events, err := vlt.Pulled(0)
+	ks, err := vlt.Keyring().Keys()
 	if err != nil {
 		log.Fatal(err)
 	}
-	// for _, e := range events {
-	// 	fmt.Printf("%d %s (%d)\n", e.Index, e.Timestamp, len(e.Data))
-	// }
-	fmt.Printf("%d event(s)\n", len(events))
+	for _, key := range ks {
+		fmt.Printf("%s %s\n", key.ID, tsutil.ParseMillis(key.CreatedAt))
+	}
 }

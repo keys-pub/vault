@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/keys-pub/keys"
-	"github.com/keys-pub/keys-ext/http/client"
 	"github.com/keys-pub/keys-ext/http/server"
 	"github.com/keys-pub/keys/dstore"
 	"github.com/keys-pub/keys/http"
@@ -29,7 +28,7 @@ type Env struct {
 // NewEnv creates a test Env.
 func NewEnv(t *testing.T, logger server.Logger) *Env {
 	if logger == nil {
-		logger = client.NewLogger(client.ErrLevel)
+		logger = vault.NewLogger(vault.ErrLevel)
 	}
 	clock := tsutil.NewTestClock()
 	fi := dstore.NewMem()

@@ -35,13 +35,16 @@ func (v *Vault) GenerateFIDO2HMACSecret(ctx context.Context, pin string, device 
 }
 
 // SetupFIDO2HMACSecret sets up vault with a FIDO2 hmac-secret.
-func (v *Vault) SetupFIDO2HMACSecret(ctx context.Context, hs *auth.FIDO2HMACSecret, pin string) (*[32]byte, error) {
+func (v *Vault) SetupFIDO2HMACSecret(ctx context.Context, hs *auth.FIDO2HMACSecret, pin string, opt ...SetupOption) (*[32]byte, error) {
 	if v.fido2Plugin == nil {
 		return nil, errors.Errorf("no fido2 plugin set")
 	}
 	mk := keys.Rand32()
 	_, err := v.auth.RegisterFIDO2HMACSecret(ctx, v.fido2Plugin, hs, mk, pin)
 	if err != nil {
+		return nil, err
+	}
+	if err := v.Setup(mk, opt...); err != nil {
 		return nil, err
 	}
 	return mk, nil

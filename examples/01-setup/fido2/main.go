@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/keys-pub/keys-ext/auth/fido2"
-	"github.com/keys-pub/keys-ext/http/client"
 	"github.com/keys-pub/vault"
 	"github.com/keys-pub/vault/auth"
 )
@@ -14,7 +13,6 @@ import (
 func main() {
 	logger := vault.NewLogger(vault.DebugLevel)
 	vault.SetLogger(logger)
-	client.SetLogger(logger)
 
 	// FIDO2
 	fido2Plugin, err := fido2.OpenPlugin("fido2.so")
@@ -30,7 +28,7 @@ func main() {
 	defer auth.Close()
 
 	// Vault
-	vlt, err := vault.New("/tmp/vault.db", auth, nil)
+	vlt, err := vault.New("/tmp/vault.db", auth)
 	if err != nil {
 		log.Fatal(err)
 	}
