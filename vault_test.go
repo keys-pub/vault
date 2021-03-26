@@ -34,6 +34,12 @@ func TestVaultSetup(t *testing.T) {
 	require.NoError(t, err)
 	err = vlt.Unlock(mk)
 	require.NoError(t, err)
+
+	// Lock, unlock
+	err = vlt.Lock()
+	require.NoError(t, err)
+	err = vlt.Unlock(mk)
+	require.NoError(t, err)
 }
 
 func TestVaultInvalidPassword(t *testing.T) {

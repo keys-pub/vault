@@ -139,7 +139,7 @@ func (v *Vault) Unlock(mk *[32]byte) error {
 		return err
 	}
 
-	ck, err := getKeyWithLabel(db, "main")
+	ck, err := getKeyWithLabel(db, "client")
 	if err != nil {
 		onErrFn()
 		return err
