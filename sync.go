@@ -37,10 +37,8 @@ func (s *syncer) Sync(ctx context.Context, key *api.Key) error {
 	//
 	// If we fail during push (after succeeding on the server, the response is
 	// lost), we would push duplicates on the next push.
-	// These duplicates would show up in the subsequent pulls but otherwise
-	// wouldn't cause any problems.
-	// We could de-dupe on the clients, but since this is probably rare and the
-	// failure is mostly cosmetic, we will ignore for now.
+	// These duplicates would show up in the subsequent pulls and would be up
+	// to clients to deal with it, which most clients could probably ignore.
 
 	if err := s.Push(ctx, key); err != nil {
 		return errors.Wrapf(err, "failed to push vault")
@@ -162,66 +160,6 @@ func (s *syncer) applyPull(vid keys.ID, events *Events) error {
 		}
 		return nil
 	})
-}
-
-func (s *syncer) resolveKeyTokens(ctx context.Context) error {
-	logger.Debugf("Resolve key tokens...")
-	check, err := getKeysWithLabel(s.db, "vault")
-	if err != nil {
-		return err
-	}
-	for _, key := range check {
-		if !key.IsEdX25519() {
-			return errors.Errorf("invalid key")
-		}
-		if key.Token == "" {
-			logger.Debugf("Getting vault token...")
-			token, err := s.client.Create(ctx, key.AsEdX25519())
-			if err != nil {
-				return err
-			}
-			key.Token = token
-			key.UpdatedAt = s.clock.NowMillis()
-			if err := updateKey(s.db, key); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (s *syncer) Changed(ctx context.Context) error {
-	if err := s.resolveKeyTokens(ctx); err != nil {
-		return err
-	}
-	tokens, err := getTokens(s.db)
-	if err != nil {
-		return err
-	}
-	status, err := s.client.Status(ctx, tokens)
-	if err != nil {
-		return err
-	}
-	for _, st := range status {
-		logger.Debugf("Status: %s %d", st.ID, st.Index)
-	}
-	indexes, err := pullIndexes(s.db)
-	if err != nil {
-		return err
-	}
-
-	for _, st := range status {
-		logger.Debugf("Status: %s %d", st.ID, st.Index)
-	}
-
-	for _, st := range status {
-		kid := st.ID
-		local := indexes[kid]
-		if local < st.Index {
-			logger.Debugf("Changed %d < %d", local, st.Index)
-		}
-	}
-	return nil
 }
 
 // func absDuration(d time.Duration) time.Duration {

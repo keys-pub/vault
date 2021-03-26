@@ -120,8 +120,8 @@ func (c *Client) Delete(ctx context.Context, key *keys.EdX25519Key) error {
 	return nil
 }
 
-// Create a vault.
-func (c *Client) Create(ctx context.Context, vault *keys.EdX25519Key) (string, error) {
+// Register a vault.
+func (c *Client) Register(ctx context.Context, vault *keys.EdX25519Key) (string, error) {
 	path := dstore.Path("vault", vault.ID())
 	resp, err := c.Request(ctx, &Request{Method: "PUT", Path: path, Key: vault})
 	if err != nil {

@@ -51,6 +51,6 @@ func main() {
 		log.Fatal(err)
 	}
 	for _, key := range ks {
-		fmt.Printf("%s %s\n", key.ID, tsutil.ParseMillis(key.CreatedAt))
+		fmt.Printf("%s %s %s\n", key.ID, tsutil.ParseMillis(key.CreatedAt), key.Labels)
 	}
 }

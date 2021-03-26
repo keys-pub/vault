@@ -78,7 +78,7 @@ func TestSyncCreateFind(t *testing.T) {
 	v1, closeFn1 := testVaultSetup(t, env, keys.Rand32(), ck)
 	defer closeFn1()
 
-	err = v1.Create(context.TODO(), channel)
+	err = v1.Register(context.TODO(), channel)
 	require.NoError(t, err)
 
 	out, err := v1.Keyring().Key(channel.ID())
@@ -108,29 +108,28 @@ func TestSyncMessages(t *testing.T) {
 
 	channel := keys.NewEdX25519KeyFromSeed(testSeed(0xb0))
 	alice := keys.NewEdX25519KeyFromSeed(testSeed(0x01))
-	bob := keys.NewEdX25519KeyFromSeed(testSeed(0x02))
 
 	t.Logf("--- Client #1 ---")
 	v1, closeFn1 := testVaultSetup(t, env, keys.Rand32(), ck)
 	defer closeFn1()
 
-	err = v1.Create(context.TODO(), channel)
+	err = v1.Register(context.TODO(), channel)
 	require.NoError(t, err)
 
-	err = v1.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("hi bob")))
+	err = v1.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("msg1")))
 	require.NoError(t, err)
-	err = v1.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("what time is the meeting")))
+	err = v1.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("msg2")))
 	require.NoError(t, err)
 
 	msgs1 := []*httpapi.Message{}
-	receiverDb1 := func(ctx *vault.SyncContext, events []*vault.Event) error {
+	receiver1 := func(ctx *vault.SyncContext, events []*vault.Event) error {
 		for _, event := range events {
 			msgs1 = append(msgs1, unmarshal(event.Data))
 		}
 		return nil
 	}
 
-	err = v1.Sync(ctx, channel.ID(), receiverDb1)
+	err = v1.Sync(ctx, channel.ID(), receiver1)
 	require.NoError(t, err)
 
 	t.Logf("--- Client #2 ---")
@@ -138,30 +137,94 @@ func TestSyncMessages(t *testing.T) {
 	defer closeFn2()
 
 	msgs2 := []*httpapi.Message{}
-	receiverDb2 := func(ctx *vault.SyncContext, events []*vault.Event) error {
+	receiver2 := func(ctx *vault.SyncContext, events []*vault.Event) error {
 		for _, event := range events {
 			msgs2 = append(msgs2, unmarshal(event.Data))
 		}
 		return nil
 	}
 
-	err = v2.Sync(ctx, channel.ID(), receiverDb2)
+	err = v2.Sync(ctx, channel.ID(), receiver2)
 	require.NoError(t, err)
 
-	err = v2.Add(channel.ID(), marshal(httpapi.NewMessage(bob.ID()).WithText("hi alice, how about 2pm?")))
+	err = v2.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("msg3")))
 	require.NoError(t, err)
 
-	err = v2.Sync(ctx, channel.ID(), receiverDb2)
+	err = v2.Sync(ctx, channel.ID(), receiver2)
 	require.NoError(t, err)
 
 	t.Logf("--- Client #1 ---")
-	err = v1.Sync(ctx, channel.ID(), receiverDb1)
+	err = v1.Sync(ctx, channel.ID(), receiver1)
 	require.NoError(t, err)
 
 	require.Equal(t, msgs1, msgs2)
 }
 
-// TODO: Test reset
+func TestSyncAliceBob(t *testing.T) {
+	// vault.SetLogger(vault.NewLogger(vault.DebugLevel))
+	var err error
+	env := testutil.NewEnv(t, nil) // vault.NewLogger(vault.DebugLevel))
+	defer env.CloseFn()
+
+	ctx := context.TODO()
+	channel := keys.NewEdX25519KeyFromSeed(testSeed(0xb0))
+
+	t.Logf("--- Alice ---")
+	cka := keys.NewEdX25519KeyFromSeed(testSeed(0xaf))
+	alice := keys.NewEdX25519KeyFromSeed(testSeed(0x01))
+	v1, closeFn1 := testVaultSetup(t, env, keys.Rand32(), cka)
+	defer closeFn1()
+
+	err = v1.Register(context.TODO(), channel)
+	require.NoError(t, err)
+
+	err = v1.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("hi bob")))
+	require.NoError(t, err)
+	err = v1.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("what's for lunch?")))
+	require.NoError(t, err)
+
+	aliceMsgs := []*httpapi.Message{}
+	aliceReceiver := func(ctx *vault.SyncContext, events []*vault.Event) error {
+		for _, event := range events {
+			aliceMsgs = append(aliceMsgs, unmarshal(event.Data))
+		}
+		return nil
+	}
+	err = v1.Sync(ctx, channel.ID(), aliceReceiver)
+	require.NoError(t, err)
+
+	t.Logf("--- Bob ---")
+	ckb := keys.NewEdX25519KeyFromSeed(testSeed(0xbf))
+	bob := keys.NewEdX25519KeyFromSeed(testSeed(0x02))
+	v2, closeFn2 := testVaultSetup(t, env, keys.Rand32(), ckb)
+	defer closeFn2()
+
+	err = v2.Register(ctx, channel)
+	require.NoError(t, err)
+
+	bobMsgs := []*httpapi.Message{}
+	bobReceiver := func(ctx *vault.SyncContext, events []*vault.Event) error {
+		for _, event := range events {
+			bobMsgs = append(bobMsgs, unmarshal(event.Data))
+		}
+		return nil
+	}
+
+	err = v2.Sync(ctx, channel.ID(), bobReceiver)
+	require.NoError(t, err)
+
+	err = v2.Add(channel.ID(), marshal(httpapi.NewMessage(bob.ID()).WithText("homemade mcribs")))
+	require.NoError(t, err)
+
+	err = v2.Sync(ctx, channel.ID(), bobReceiver)
+	require.NoError(t, err)
+
+	t.Logf("--- Alice ---")
+	err = v1.Sync(ctx, channel.ID(), aliceReceiver)
+	require.NoError(t, err)
+
+	require.Equal(t, aliceMsgs, bobMsgs)
+}
 
 func testSeed(b byte) *[32]byte {
 	return keys.Bytes32(bytes.Repeat([]byte{b}, 32))

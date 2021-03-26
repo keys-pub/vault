@@ -1,14 +1,13 @@
 # Architecture
 
-The vault package provides a key value store and event log. It uses an encrypted sqlite database (with sqlcipher) that is encrypted with a master key.
+The vault package provides a syncable encrypted event log. It uses an encrypted sqlite database (with sqlcipher) that is encrypted with a master key.
 This master key can be obtained from an auth method, such as a password, paper key or hardware (FIDO2) key, using the auth package, or can be managed manually.
 
 ## Vault Database
 
 The `push` table contains data not yet synced to a remote.
 The `pull` table contains data synced from a remote and includes a remote index and timestamp.
-The order of data in the pull table is the order the remote (server) received the data.
-If there are conflicts, it is up to the clients to resolve them.
+The `keys` table contains any keys in the keyring such as the client key or registered vault keys.
 
 ## Auth Database
 

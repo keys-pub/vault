@@ -187,6 +187,32 @@ func (v *Vault) Lock() error {
 	return nil
 }
 
+// Register a vault.
+// You can register a key that already exists.
+// You can sync a keyring vault to get registered vault keys as well.
+// Requires Unlock.
+func (v *Vault) Register(ctx context.Context, key *keys.EdX25519Key) error {
+	if v.db == nil {
+		return ErrLocked
+	}
+	vk := api.NewKey(key).WithLabels("vault").Created(v.clock.NowMillis())
+	token, err := v.client.Register(ctx, key)
+	if err != nil {
+		return err
+	}
+	vk.Token = token
+
+	if err := saveKey(v.db, v.ck.ID, vk); err != nil {
+		return err
+	}
+
+	if err = v.kr.Sync(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Add to vault.
 // The `vid` is a vault identifier.
 // You can create a vault using Create.
@@ -217,30 +243,6 @@ type Event struct {
 	RemoteIndex     int64     `db:"ridx"`
 	RemoteTimestamp time.Time `db:"rts"`
 	VID             keys.ID   `db:"vid"`
-}
-
-// Create a vault.
-// Requires Unlock.
-func (v *Vault) Create(ctx context.Context, key *keys.EdX25519Key) error {
-	if v.db == nil {
-		return ErrLocked
-	}
-	vk := api.NewKey(key).WithLabels("vault").Created(v.clock.NowMillis())
-	token, err := v.client.Create(ctx, key)
-	if err != nil {
-		return err
-	}
-	vk.Token = token
-
-	if err := saveKey(v.db, v.ck.ID, vk); err != nil {
-		return err
-	}
-
-	if err = v.kr.Sync(ctx); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // Keyring for keys in vault.
