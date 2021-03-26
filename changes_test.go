@@ -46,17 +46,12 @@ func TestChanges(t *testing.T) {
 	v2, closeFn2 := testVaultSetup(t, env, keys.Rand32(), ck)
 	defer closeFn2()
 
-	chgs, err := v2.Changes(context.TODO())
-	require.NoError(t, err)
-	expected := []*vault.Change{{VID: ck.ID(), Local: 0, Remote: 4, Timestamp: 1234567890008}}
-	require.Equal(t, expected, chgs)
-
 	err = v2.Keyring().Sync(context.TODO())
 	require.NoError(t, err)
 
-	chgs, err = v2.Changes(context.TODO())
+	chgs, err := v2.Changes(context.TODO())
 	require.NoError(t, err)
-	expected = []*vault.Change{
+	expected := []*vault.Change{
 		{VID: channels[3].ID(), Local: 0, Remote: 1, Timestamp: 1234567890070},
 		{VID: channels[2].ID(), Local: 0, Remote: 1, Timestamp: 1234567890048},
 		{VID: channels[1].ID(), Local: 0, Remote: 1, Timestamp: 1234567890026},

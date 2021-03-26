@@ -7,9 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
-	"github.com/keys-pub/keys/api"
 	"github.com/pkg/errors"
-	"github.com/vmihailenco/msgpack/v4"
 
 	// For sqlite3 (sqlcipher driver)
 	_ "github.com/mutecomm/go-sqlcipher/v4"
@@ -44,17 +42,6 @@ func initTables(db *sqlx.DB) error {
 			data BLOB NOT NULL,			
 			rts TIMESTAMP NOT NULL,
 			vid TEXT NOT NULL
-		);`,
-		`CREATE TABLE IF NOT EXISTS keys (
-			id TEXT PRIMARY KEY NOT NULL,
-			type TEXT NOT NULL,
-			private BLOB,
-			public BLOB,
-			token TEXT,	
-			createdAt INTEGER,
-			updatedAt INTEGER,
-			notes TEXT,
-			labels TEXT
 		);`,
 		// TODO: Indexes
 	}
@@ -172,112 +159,6 @@ func pullIndexes(db *sqlx.DB) (map[keys.ID]int64, error) {
 		}
 	}
 	return m, nil
-}
-
-func saveKey(db *sqlx.DB, vid keys.ID, key *api.Key) error {
-	return TransactDB(db, func(tx *sqlx.Tx) error {
-		return saveKeyTx(tx, vid, key)
-	})
-}
-
-func saveKeyTx(tx *sqlx.Tx, vid keys.ID, key *api.Key) error {
-	logger.Debugf("Saving key %s", key.ID)
-	b, err := msgpack.Marshal(key)
-	if err != nil {
-		return err
-	}
-	if err := Add(tx, vid, b); err != nil {
-		return err
-	}
-	return updateKeyTx(tx, key)
-}
-
-func updateKey(db *sqlx.DB, key *api.Key) error {
-	return TransactDB(db, func(tx *sqlx.Tx) error {
-		return updateKeyTx(tx, key)
-	})
-}
-
-func updateKeyTx(tx *sqlx.Tx, key *api.Key) error {
-	logger.Debugf("Update key %s", key.ID)
-	if _, err := tx.NamedExec(`INSERT OR REPLACE INTO keys VALUES 
-		(:id, :type, :private, :public, :token, :createdAt, :updatedAt, :notes, :labels)`, key); err != nil {
-		return err
-	}
-	return nil
-}
-
-func getKey(db *sqlx.DB, kid keys.ID) (*api.Key, error) {
-	var key api.Key
-	if err := db.Get(&key, "SELECT * FROM keys WHERE id = $1", kid); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &key, nil
-}
-
-func getKeyWithLabel(db *sqlx.DB, label string) (*api.Key, error) {
-	var key api.Key
-	sqlLabel := "%^" + label + "$%"
-	if err := db.Get(&key, "SELECT * FROM keys WHERE labels LIKE $1", sqlLabel); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &key, nil
-}
-
-func getKeysWithLabel(db *sqlx.DB, label string) ([]*api.Key, error) {
-	logger.Debugf("Get keys with label %q", label)
-	var out []*api.Key
-	sqlLabel := "%^" + label + "$%"
-	if err := db.Select(&out, "SELECT * FROM keys WHERE labels LIKE $1", sqlLabel); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return out, nil
-}
-
-func getKeys(db *sqlx.DB) ([]*api.Key, error) {
-	var vks []*api.Key
-	if err := db.Select(&vks, "SELECT * FROM keys ORDER BY id"); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return vks, nil
-}
-
-// func getKeysByType(db *sqlx.DB, typ string) ([]*api.Key, error) {
-// 	var vks []*api.Key
-// 	if err := db.Select(&vks, "SELECT * FROM keys WHERE type = $1 ORDER BY id", typ); err != nil {
-// 		if err == sql.ErrNoRows {
-// 			return nil, nil
-// 		}
-// 		return nil, err
-// 	}
-// 	return vks, nil
-// }
-
-func getTokens(db *sqlx.DB) ([]*Token, error) {
-	var vks []*api.Key
-	if err := db.Select(&vks, "SELECT * FROM keys WHERE type = $1 AND token != $2", "edx25519", ""); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	out := []*Token{}
-	for _, k := range vks {
-		out = append(out, &Token{KID: k.ID, Token: k.Token})
-	}
-	return out, nil
 }
 
 // func resetPush(db *sqlx.DB) error {

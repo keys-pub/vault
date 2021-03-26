@@ -24,9 +24,9 @@ type Change struct {
 	Timestamp int64
 }
 
-// Changes for any keys.
+// Changes for any keys in the keyring.
 // If the keyring isn't synced this may not return all changes for those keyring
-// keys.
+// keys, so you should usually sync the keyring first.
 func (v *Vault) Changes(ctx context.Context) ([]*Change, error) {
 	c := &changes{v.db, v.client, v.clock}
 

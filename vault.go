@@ -11,6 +11,7 @@ import (
 	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/keys/tsutil"
 	"github.com/keys-pub/vault/auth"
+	"github.com/vmihailenco/msgpack/v4"
 
 	"github.com/pkg/errors"
 )
@@ -139,7 +140,7 @@ func (v *Vault) Unlock(mk *[32]byte) error {
 		return err
 	}
 
-	ck, err := getKeyWithLabel(db, "client")
+	ck, err := clientKey(db)
 	if err != nil {
 		onErrFn()
 		return err
@@ -149,17 +150,25 @@ func (v *Vault) Unlock(mk *[32]byte) error {
 		return errors.Errorf("needs setup")
 	}
 
-	v.unlocked(mk, ck, db)
+	if err := v.unlocked(mk, ck, db); err != nil {
+		onErrFn()
+		return err
+	}
 
 	logger.Debugf("Unlocked")
 	return nil
 }
 
-func (v *Vault) unlocked(mk *[32]byte, ck *api.Key, db *sqlx.DB) {
+func (v *Vault) unlocked(mk *[32]byte, ck *api.Key, db *sqlx.DB) error {
+	kr, err := NewKeyring(db, ck, v.client, v.clock)
+	if err != nil {
+		return err
+	}
 	v.mk = mk
 	v.ck = ck
 	v.db = db
-	v.kr = &Keyring{db, ck, v.client, v.clock}
+	v.kr = kr
+	return nil
 }
 
 func (v *Vault) locked() {
@@ -202,7 +211,7 @@ func (v *Vault) Register(ctx context.Context, key *keys.EdX25519Key) error {
 	}
 	vk.Token = token
 
-	if err := saveKey(v.db, v.ck.ID, vk); err != nil {
+	if err := v.Keyring().Set(vk); err != nil {
 		return err
 	}
 
@@ -261,27 +270,45 @@ func (v *Vault) DB() *sqlx.DB {
 
 // ClientKey is the vault client key.
 func (v *Vault) ClientKey() (*api.Key, error) {
-	ck, err := getKeyWithLabel(v.db, "client")
+	return clientKey(v.db)
+
+}
+
+func clientKey(db *sqlx.DB) (*api.Key, error) {
+	b, err := getConfigBytes(db, "clientKey")
 	if err != nil {
 		return nil, err
 	}
-	return ck, nil
+	if b == nil {
+		return nil, nil
+	}
+	var k api.Key
+	if err := msgpack.Unmarshal(b, &k); err != nil {
+		return nil, err
+	}
+	return &k, nil
 }
 
 func importClientKey(db *sqlx.DB, key *keys.EdX25519Key, clock tsutil.Clock) (*api.Key, error) {
 	logger.Debugf("Import client key...")
-	ck, err := getKeyWithLabel(db, "client")
+	ck, err := clientKey(db)
 	if err != nil {
 		return nil, err
 	}
 	if ck != nil {
 		return nil, errors.Errorf("already setup")
 	}
-	ck = api.NewKey(key).WithLabels("client", "vault")
+	ck = api.NewKey(key).WithLabels("vault")
 	ck.CreatedAt = clock.NowMillis()
 	ck.UpdatedAt = clock.NowMillis()
-	if err := updateKey(db, ck); err != nil {
+
+	b, err := msgpack.Marshal(ck)
+	if err != nil {
 		return nil, err
 	}
+	if err := setConfigBytes(db, "clientKey", b); err != nil {
+		return nil, err
+	}
+
 	return ck, nil
 }

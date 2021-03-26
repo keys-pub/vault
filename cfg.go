@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/keys-pub/keys/encoding"
 	"github.com/pkg/errors"
 )
 
@@ -25,27 +26,27 @@ func getConfig(db *sqlx.DB, key string) (string, error) {
 	return value, nil
 }
 
-// func setConfigBytes(db *sqlx.DB, key string, b []byte) error {
-// 	if len(b) == 0 {
-// 		return setConfig(db, key, "")
-// 	}
-// 	return setConfig(db, key, encoding.MustEncode(b, encoding.Base64))
-// }
+func setConfigBytes(db *sqlx.DB, key string, b []byte) error {
+	if len(b) == 0 {
+		return setConfig(db, key, "")
+	}
+	return setConfig(db, key, encoding.MustEncode(b, encoding.Base64))
+}
 
-// func getConfigBytes(db *sqlx.DB, key string) ([]byte, error) {
-// 	s, err := getConfig(db, key)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if len(s) == 0 {
-// 		return nil, nil
-// 	}
-// 	b, err := encoding.DecodeBase64(s)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return b, nil
-// }
+func getConfigBytes(db *sqlx.DB, key string) ([]byte, error) {
+	s, err := getConfig(db, key)
+	if err != nil {
+		return nil, err
+	}
+	if len(s) == 0 {
+		return nil, nil
+	}
+	b, err := encoding.DecodeBase64(s)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
 
 // func setConfigInt64(db *sqlx.DB, key string, n int64) error {
 // 	if n == 0 {

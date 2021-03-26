@@ -62,6 +62,19 @@ func TestSyncKeyring(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, out2, out)
 	require.Equal(t, "testing", out2.Notes)
+
+	// Remove key
+	err = v1.Keyring().Remove(alice.ID())
+	require.NoError(t, err)
+	err = v1.Keyring().Sync(context.TODO())
+	require.NoError(t, err)
+
+	t.Logf("--- Client #2 ---")
+	err = v2.Keyring().Sync(context.TODO())
+	require.NoError(t, err)
+	out3, err := v1.Keyring().Key(alice.ID())
+	require.NoError(t, err)
+	require.Nil(t, out3)
 }
 
 func TestSyncCreateFind(t *testing.T) {

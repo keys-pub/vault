@@ -4,8 +4,9 @@ go 1.15
 
 require (
 	github.com/alta/protopatch v0.3.3 // indirect
+	github.com/davecgh/go-spew v1.1.1
 	github.com/jmoiron/sqlx v1.3.1
-	github.com/keys-pub/keys v0.1.21-0.20210326150443-d3a790bc64b8
+	github.com/keys-pub/keys v0.1.21-0.20210326211358-fb3db764000f
 	github.com/keys-pub/keys-ext/auth/fido2 v0.0.0-20210326151246-e22614b5a632
 	github.com/keys-pub/keys-ext/http/api v0.0.0-20210326151246-e22614b5a632
 	github.com/keys-pub/keys-ext/http/server v0.0.0-20210326151246-e22614b5a632
