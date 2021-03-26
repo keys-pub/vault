@@ -14,12 +14,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Message to store in vault.
-type Message struct {
-	ID   string `msgpack:"id"`
-	Text string `msgpack:"text"`
-}
-
 func main() {
 	logger := vault.NewLogger(vault.DebugLevel)
 	vault.SetLogger(logger)
@@ -40,8 +34,8 @@ func main() {
 	}
 	defer vlt.Lock()
 
-	alice := api.NewKey(keys.GenerateEdX25519Key()).WithLabels("test").Created(tsutil.NowMillis())
-	if err := vlt.Keyring().Set(alice); err != nil {
+	test := api.NewKey(keys.GenerateEdX25519Key()).WithLabels("test").Created(tsutil.NowMillis())
+	if err := vlt.Keyring().Set(test); err != nil {
 		log.Fatal(err)
 	}
 

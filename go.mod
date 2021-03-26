@@ -19,7 +19,8 @@ require (
 	github.com/vmihailenco/msgpack/v4 v4.3.12
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/net v0.0.0-20210324205630-d1beb07c2056 // indirect
-	google.golang.org/genproto v0.0.0-20210325141258-5636347f2b14 // indirect
+	google.golang.org/genproto v0.0.0-20210325224202-eed09b1b5210 // indirect
+	google.golang.org/grpc v1.36.1 // indirect
 )
 
 replace github.com/keys-pub/keys => ../keys

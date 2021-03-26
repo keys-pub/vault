@@ -1,12 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log"
+	"os/exec"
+	"path/filepath"
+	"strings"
 
-	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys-ext/auth/fido2"
 	"github.com/keys-pub/vault"
 	"github.com/keys-pub/vault/auth"
@@ -16,8 +17,8 @@ func main() {
 	logger := vault.NewLogger(vault.DebugLevel)
 	vault.SetLogger(logger)
 
-	// FIDO2 (TODO: Path)
-	fido2Plugin, err := fido2.OpenPlugin("/Users/gabe/go/bin/fido2.so")
+	// FIDO2
+	fido2Plugin, err := fido2.OpenPlugin(goBin("fido2.so"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -69,6 +70,10 @@ func main() {
 	}
 }
 
-func testSeed(b byte) *[32]byte {
-	return keys.Bytes32(bytes.Repeat([]byte{b}, 32))
+func goBin(file string) string {
+	out, err := exec.Command("go", "env", "GOPATH").Output()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Join(strings.TrimSpace(string(out)), "bin", file)
 }
