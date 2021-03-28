@@ -11,6 +11,7 @@ import (
 	"github.com/keys-pub/keys/tsutil"
 	"github.com/keys-pub/vault/auth"
 	"github.com/keys-pub/vault/client"
+	"github.com/keys-pub/vault/sync"
 	"github.com/vmihailenco/msgpack/v4"
 
 	"github.com/pkg/errors"
@@ -260,7 +261,7 @@ func (v *Vault) Add(vid keys.ID, b []byte) error {
 	if key == nil {
 		return errors.Wrapf(keys.NewErrNotFound((vid.String())), "failed to add")
 	}
-	if err := add(v.db, vid, b); err != nil {
+	if err := sync.Add(v.db, vid, b); err != nil {
 		return errors.Wrapf(err, "failed to add")
 	}
 	return nil

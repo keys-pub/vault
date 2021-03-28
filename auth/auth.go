@@ -12,23 +12,26 @@ var ErrInvalidAuth = errors.New("invalid auth")
 // Auth describes an auth method encrypting a master key.
 type Auth struct {
 	// ID is an identifier for the auth.
-	ID string `db:"id"`
+	ID string `msgpack:"id" db:"id"`
 
 	// EncryptedKey is a nacl secretbox encrypted master key using the auth key.
-	EncryptedKey []byte `db:"ek"`
+	EncryptedKey []byte `msgpack:"ek,omitempty" db:"ek"`
 
 	// Type of auth
-	Type Type `db:"type"`
+	Type Type `msgpack:"type,omitempty" db:"type"`
 
 	// Salt (for PasswordAuth and FIDO2HMACSecretAuth)
-	Salt []byte `db:"salt"`
+	Salt []byte `msgpack:"salt,omitempty" db:"salt"`
 
 	// AAGUID (for FIDO2HMACSecretAuth)
-	AAGUID string `json:"aaguid"`
+	AAGUID string `msgpack:"aaguid,omitempty" json:"aaguid"`
 	// NoPin (for FIDO2HMACSecretAuth)
-	NoPin bool `db:"nopin"`
+	NoPin bool `msgpack:"nopin,omitempty" db:"nopin"`
 
-	CreatedAt time.Time `db:"createdAt"`
+	CreatedAt time.Time `msgpack:"createdAt,omitempty" db:"createdAt"`
+
+	// Deleted flag
+	Deleted bool `msgpack:"del,omitempty" db:"del"`
 }
 
 // Type describes an auth method.

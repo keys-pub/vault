@@ -5,8 +5,10 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
-	"github.com/keys-pub/vault/client"
+	"github.com/keys-pub/keys/api"
+	"github.com/keys-pub/vault/sync"
 	"github.com/pkg/errors"
+	"github.com/vmihailenco/msgpack/v4"
 
 	// For sqlite3 (we use sqlcipher driver because it would conflict if we used
 	// regular sqlite driver)
@@ -15,23 +17,27 @@ import (
 
 // DB for vault.
 type DB struct {
-	db     *sqlx.DB
-	client *client.Client
+	db *sqlx.DB
+	ck *api.Key
 }
 
 // NewDB creates an DB for auth.
 // This DB is unencrypted but the auth keys themselves are encrypted.
-func NewDB(path string) (*DB, error) {
-	sqldb, err := sqlx.Open("sqlite3", path)
+func NewDB(path string, opt ...Option) (*DB, error) {
+	opts := newOptions(opt...)
+
+	db, err := sqlx.Open("sqlite3", path)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open db")
 	}
-
-	db := &DB{db: sqldb}
-	if err := db.init(); err != nil {
+	if err := initTables(db); err != nil {
 		return nil, err
 	}
-	return db, nil
+	ck, err := initClientKey(db, opts.ClientKey)
+	if err != nil {
+		return nil, err
+	}
+	return &DB{db, ck}, nil
 }
 
 func (d *DB) unlock(auth *Auth, key *[32]byte) *[32]byte {
@@ -47,7 +53,7 @@ func (d *DB) unlock(auth *Auth, key *[32]byte) *[32]byte {
 	return mk
 }
 
-func (d *DB) init() error {
+func initTables(db *sqlx.DB) error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS auth (
 			id TEXT NOT NULL PRIMARY KEY, 
@@ -58,11 +64,18 @@ func (d *DB) init() error {
 			aaguid TEXT,
 			nopin BOOL
 		);`,
+		`CREATE TABLE IF NOT EXISTS config (
+			key TEXT PRIMARY KEY NOT NULL,
+			value TEXT NOT NULL
+		);`,
 	}
 	for _, stmt := range stmts {
-		if _, err := d.db.Exec(stmt); err != nil {
+		if _, err := db.Exec(stmt); err != nil {
 			return err
 		}
+	}
+	if err := sync.InitTables(db); err != nil {
+		return err
 	}
 	return nil
 }
@@ -73,9 +86,34 @@ func (d *DB) Close() error {
 
 // Add auth method.
 func (d *DB) Add(auth *Auth) error {
-	sql := `INSERT INTO auth (id, ek, type, createdAt, salt, aaguid, nopin) 
+	return sync.Transact(d.db, func(tx *sqlx.Tx) error {
+		if err := addTx(tx, auth); err != nil {
+			return err
+		}
+
+		b, err := msgpack.Marshal(auth)
+		if err != nil {
+			return err
+		}
+		if err := sync.AddTx(tx, d.ck.ID, b); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func addTx(tx *sqlx.Tx, auth *Auth) error {
+	sql := `INSERT OR REPLACE INTO auth (id, ek, type, createdAt, salt, aaguid, nopin) 
 			VALUES (:id, :ek, :type, :createdAt, :salt, :aaguid, :nopin)`
-	if _, err := d.db.NamedExec(sql, auth); err != nil {
+	if _, err := tx.NamedExec(sql, auth); err != nil {
+		return err
+	}
+	return nil
+}
+
+func deleteTx(tx *sqlx.Tx, id string) error {
+	if _, err := tx.Exec("DELETE FROM auth WHERE id = $1", id); err != nil {
 		return err
 	}
 	return nil

@@ -5,8 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/keys-pub/keys"
-	"github.com/keys-pub/vault/dbu"
+	"github.com/keys-pub/vault/sync"
 	"github.com/pkg/errors"
 
 	// For sqlite3 (sqlcipher driver)
@@ -32,17 +31,6 @@ func initTables(db *sqlx.DB) error {
 			key TEXT PRIMARY KEY NOT NULL,
 			value TEXT NOT NULL
 		);`,
-		`CREATE TABLE IF NOT EXISTS push (
-			idx INTEGER PRIMARY KEY AUTOINCREMENT,
-			data BLOB NOT NULL,
-			vid TEXT NOT NULL
-		);`,
-		`CREATE TABLE IF NOT EXISTS pull (						
-			ridx INTEGER PRIMARY KEY NOT NULL,
-			data BLOB NOT NULL,			
-			rts TIMESTAMP NOT NULL,
-			vid TEXT NOT NULL
-		);`,
 		// TODO: Indexes
 	}
 	for _, stmt := range stmts {
@@ -50,18 +38,7 @@ func initTables(db *sqlx.DB) error {
 			return err
 		}
 	}
-	return nil
-}
-
-func add(db *sqlx.DB, vid keys.ID, b []byte) error {
-	fn := func(tx *sqlx.Tx) error { return Add(tx, vid, b) }
-	return dbu.Transact(db, fn)
-}
-
-// Add to vault.
-func Add(tx *sqlx.Tx, vid keys.ID, b []byte) error {
-	logger.Debugf("Adding to push %s (%s)", vid)
-	if _, err := tx.Exec("INSERT INTO push (vid, data) VALUES ($1, $2)", vid, b); err != nil {
+	if err := sync.InitTables(db); err != nil {
 		return err
 	}
 	return nil

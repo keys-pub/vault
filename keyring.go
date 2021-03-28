@@ -8,7 +8,6 @@ import (
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/vault/client"
-	"github.com/keys-pub/vault/dbu"
 	"github.com/keys-pub/vault/sync"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v4"
@@ -70,13 +69,13 @@ func (k *Keyring) Set(key *api.Key) error {
 	if err := k.check(); err != nil {
 		return err
 	}
-	return dbu.Transact(k.vlt.DB(), func(tx *sqlx.Tx) error {
+	return sync.Transact(k.vlt.DB(), func(tx *sqlx.Tx) error {
 		logger.Debugf("Saving key %s", key.ID)
 		b, err := msgpack.Marshal(key)
 		if err != nil {
 			return err
 		}
-		if err := Add(tx, k.vlt.ClientKey().ID, b); err != nil {
+		if err := sync.AddTx(tx, k.vlt.ClientKey().ID, b); err != nil {
 			return err
 		}
 		if err := updateKeyTx(tx, key); err != nil {
@@ -92,14 +91,14 @@ func (k *Keyring) Remove(kid keys.ID) error {
 	if err := k.check(); err != nil {
 		return err
 	}
-	return dbu.Transact(k.vlt.DB(), func(tx *sqlx.Tx) error {
+	return sync.Transact(k.vlt.DB(), func(tx *sqlx.Tx) error {
 		key := api.NewKey(kid)
 		key.Deleted = true
 		b, err := msgpack.Marshal(key)
 		if err != nil {
 			return err
 		}
-		if err := Add(tx, k.vlt.ClientKey().ID, b); err != nil {
+		if err := sync.AddTx(tx, k.vlt.ClientKey().ID, b); err != nil {
 			return err
 		}
 		return deleteKeyTx(tx, kid)
