@@ -57,28 +57,3 @@ func (v *Vault) Changes(ctx context.Context) ([]*Change, error) {
 	})
 	return changes, nil
 }
-
-// func (v *Vault) resolveKeyTokens(ctx context.Context) error {
-// 	check, err := getKeys(v.db)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	for _, key := range check {
-// 		if !key.IsEdX25519() {
-// 			return errors.Errorf("invalid key")
-// 		}
-// 		if key.Token == "" {
-// 			logger.Debugf("Resolving vault token %s", key.ID)
-// 			token, err := v.client.Register(ctx, key.AsEdX25519())
-// 			if err != nil {
-// 				return err
-// 			}
-// 			key.Token = token
-// 			key.UpdatedAt = v.clock.NowMillis()
-// 			if err := updateKey(v.db, key); err != nil {
-// 				return err
-// 			}
-// 		}
-// 	}
-// 	return nil
-// }
