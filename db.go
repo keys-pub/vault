@@ -121,7 +121,7 @@ func setPullTx(tx *sqlx.Tx, events []*Event) error {
 // func listPull(db *sqlx.DB, from int64) ([]*Event, error) {
 // 	var pulls []*Event
 // 	if err := db.Select(&pulls, "SELECT * FROM pull WHERE ridx > $1 ORDER BY ridx", from); err != nil {
-// 		if err == sql.ErrNoRows {
+// 		if errors.Is(err, sql.ErrNoRows) {
 // 			return nil, nil
 // 		}
 // 		return nil, err
@@ -161,6 +161,25 @@ func pullIndexes(db *sqlx.DB) (map[keys.ID]int64, error) {
 	return m, nil
 }
 
+func pushIndexes(db *sqlx.DB) (map[keys.ID]int64, error) {
+	logger.Debugf("Push indexes...")
+	type pushIndex struct {
+		VID   sql.NullString `db:"vid"`
+		Index sql.NullInt64  `db:"idx"`
+	}
+	var pis []*pushIndex
+	if err := db.Select(&pis, "SELECT vid, MAX(idx) as idx FROM push"); err != nil {
+		return nil, err
+	}
+	m := map[keys.ID]int64{}
+	for _, pi := range pis {
+		if pi.VID.Valid && pi.Index.Valid {
+			m[keys.ID(pi.VID.String)] = pi.Index.Int64
+		}
+	}
+	return m, nil
+}
+
 // func resetPush(db *sqlx.DB) error {
 // 	return TransactDB(db, resetPushTx)
 // }
@@ -173,7 +192,7 @@ func pullIndexes(db *sqlx.DB) (map[keys.ID]int64, error) {
 
 // 	var pulls []*Event
 // 	if err := tx.Select(&pulls, "SELECT * FROM pull"); err != nil {
-// 		if err == sql.ErrNoRows {
+// 		if errors.Is(err, sql.ErrNoRows) {
 // 			return nil
 // 		}
 // 		return err

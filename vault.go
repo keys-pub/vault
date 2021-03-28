@@ -238,7 +238,7 @@ func (v *Vault) Register(ctx context.Context, key *keys.EdX25519Key) error {
 	if v.db == nil {
 		return ErrLocked
 	}
-	vk := api.NewKey(key).WithLabels("vault").Created(v.clock.NowMillis())
+	vk := api.NewKey(key).Created(v.clock.NowMillis())
 	token, err := v.client.Register(ctx, key)
 	if err != nil {
 		return err
@@ -270,9 +270,6 @@ func (v *Vault) Add(vid keys.ID, b []byte) error {
 	}
 	if key == nil {
 		return errors.Wrapf(keys.NewErrNotFound((vid.String())), "failed to add")
-	}
-	if !key.HasLabel("vault") {
-		return errors.Errorf("not a vault key")
 	}
 	if err := add(v.db, vid, b); err != nil {
 		return errors.Wrapf(err, "failed to add")
@@ -308,7 +305,11 @@ func (v *Vault) DB() *sqlx.DB {
 // ClientKey is the vault client key.
 func (v *Vault) ClientKey() (*api.Key, error) {
 	return clientKey(v.db)
+}
 
+// Client is the vault client.
+func (v *Vault) Client() *Client {
+	return v.client
 }
 
 func clientKey(db *sqlx.DB) (*api.Key, error) {
@@ -335,7 +336,7 @@ func importClientKey(db *sqlx.DB, key *keys.EdX25519Key, clock tsutil.Clock) (*a
 	if ck != nil {
 		return nil, errors.Errorf("already setup")
 	}
-	ck = api.NewKey(key).WithLabels("vault")
+	ck = api.NewKey(key)
 	ck.CreatedAt = clock.NowMillis()
 	ck.UpdatedAt = clock.NowMillis()
 

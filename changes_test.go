@@ -27,8 +27,8 @@ func TestChanges(t *testing.T) {
 	}
 	alice := keys.NewEdX25519KeyFromSeed(testSeed(0x01))
 
-	t.Logf("--- Client #1 ---")
-	v1, closeFn1 := testVaultSetup(t, env, keys.Rand32(), ck)
+	t.Logf("Client #1")
+	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
 	defer closeFn1()
 
 	for _, channel := range channels {
@@ -41,8 +41,8 @@ func TestChanges(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	t.Logf("--- Client #2 ---")
-	v2, closeFn2 := testVaultSetup(t, env, keys.Rand32(), ck)
+	t.Logf("Client #2")
+	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
 	defer closeFn2()
 
 	err = v2.Keyring().Sync(context.TODO())

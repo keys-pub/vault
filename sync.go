@@ -6,10 +6,10 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys/api"
-	"github.com/keys-pub/keys/tsutil"
 	"github.com/pkg/errors"
 )
 
+// Sync a specific key with receiver.
 func (v *Vault) Sync(ctx context.Context, vid keys.ID, receiver Receiver) error {
 	vk, err := v.kr.Find(ctx, vid)
 	if err != nil {
@@ -19,18 +19,27 @@ func (v *Vault) Sync(ctx context.Context, vid keys.ID, receiver Receiver) error 
 		return keys.NewErrNotFound(vid.String())
 	}
 
-	s := &syncer{v.db, v.client, receiver, v.clock}
+	s := NewSyncer(v.db, v.client, receiver)
 	return s.Sync(ctx, vk)
 }
 
-type syncer struct {
+// Syncer syncs.
+type Syncer struct {
 	db       *sqlx.DB
 	client   *Client
 	receiver Receiver
-	clock    tsutil.Clock
 }
 
-func (s *syncer) Sync(ctx context.Context, key *api.Key) error {
+// NewSyncer creates a Syncer.
+func NewSyncer(db *sqlx.DB, client *Client, receiver Receiver) *Syncer {
+	return &Syncer{
+		db:       db,
+		client:   client,
+		receiver: receiver,
+	}
+}
+
+func (s *Syncer) Sync(ctx context.Context, key *api.Key) error {
 	logger.Infof("Syncing %s...", key.ID)
 
 	// What happens on connection failures, context cancellation?
@@ -54,7 +63,7 @@ func (s *syncer) Sync(ctx context.Context, key *api.Key) error {
 }
 
 // Push to remote.
-func (s *syncer) Push(ctx context.Context, key *api.Key) error {
+func (s *Syncer) Push(ctx context.Context, key *api.Key) error {
 	if s.client == nil {
 		return errors.Errorf("no vault client set")
 	}
@@ -103,7 +112,7 @@ func (s *syncer) Push(ctx context.Context, key *api.Key) error {
 }
 
 // Pull from remote.
-func (s *syncer) Pull(ctx context.Context, key *api.Key) error {
+func (s *Syncer) Pull(ctx context.Context, key *api.Key) error {
 	local, err := pullIndex(s.db, key.ID)
 	if err != nil {
 		return err
@@ -122,7 +131,7 @@ func (s *syncer) Pull(ctx context.Context, key *api.Key) error {
 	return nil
 }
 
-func (s *syncer) pullNext(ctx context.Context, key *api.Key, index int64) (bool, error) {
+func (s *Syncer) pullNext(ctx context.Context, key *api.Key, index int64) (bool, error) {
 	if s.client == nil {
 		return false, errors.Errorf("no vault client set")
 	}
@@ -140,13 +149,16 @@ func (s *syncer) pullNext(ctx context.Context, key *api.Key, index int64) (bool,
 	}
 	logger.Debugf("Saving (%d)...", len(events.Events))
 	if err := s.applyPull(key.ID, events); err != nil {
-		return false, err
+		return false, errors.Wrapf(err, "failed to apply pull")
 	}
 
 	return events.Truncated, nil
 }
 
-func (s *syncer) applyPull(vid keys.ID, events *Events) error {
+func (s *Syncer) applyPull(vid keys.ID, events *Events) error {
+	if len(events.Events) == 0 {
+		return nil
+	}
 	return TransactDB(s.db, func(tx *sqlx.Tx) error {
 		if err := setPullTx(tx, events.Events); err != nil {
 			return err

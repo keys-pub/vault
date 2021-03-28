@@ -24,7 +24,7 @@ func testDB(t *testing.T) (*sqlx.DB, func()) {
 
 func TestConfig(t *testing.T) {
 	var err error
-	path := testPath()
+	path := testutil.Path()
 	defer func() { _ = os.Remove(path) }()
 
 	db, closeFn := testDB(t)

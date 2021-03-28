@@ -129,7 +129,7 @@ func (k *Keyring) Sync(ctx context.Context) error {
 		return err
 	}
 
-	s := &syncer{k.db, k.client, k.receive, k.clock}
+	s := NewSyncer(k.db, k.client, k.receive)
 
 	if err := s.Sync(ctx, k.ck); err != nil {
 		return err
@@ -203,7 +203,7 @@ func deleteKeyTx(tx *sqlx.Tx, kid keys.ID) error {
 func getKey(db *sqlx.DB, kid keys.ID) (*api.Key, error) {
 	var key api.Key
 	if err := db.Get(&key, "SELECT * FROM keys WHERE id = $1", kid); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -215,7 +215,7 @@ func getKey(db *sqlx.DB, kid keys.ID) (*api.Key, error) {
 // 	var key api.Key
 // 	sqlLabel := "%^" + label + "$%"
 // 	if err := db.Get(&key, "SELECT * FROM keys WHERE labels LIKE $1", sqlLabel); err != nil {
-// 		if err == sql.ErrNoRows {
+// 		if errors.Is(err, sql.ErrNoRows) {
 // 			return nil, nil
 // 		}
 // 		return nil, err
@@ -228,7 +228,7 @@ func getKeysWithLabel(db *sqlx.DB, label string) ([]*api.Key, error) {
 	var out []*api.Key
 	sqlLabel := "%^" + label + "$%"
 	if err := db.Select(&out, "SELECT * FROM keys WHERE labels LIKE $1", sqlLabel); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -239,7 +239,7 @@ func getKeysWithLabel(db *sqlx.DB, label string) ([]*api.Key, error) {
 func getKeys(db *sqlx.DB) ([]*api.Key, error) {
 	var vks []*api.Key
 	if err := db.Select(&vks, "SELECT * FROM keys ORDER BY id"); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -250,7 +250,7 @@ func getKeys(db *sqlx.DB) ([]*api.Key, error) {
 func getKeysByType(db *sqlx.DB, typ string) ([]*api.Key, error) {
 	var vks []*api.Key
 	if err := db.Select(&vks, "SELECT * FROM keys WHERE type = $1 ORDER BY id", typ); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -261,7 +261,7 @@ func getKeysByType(db *sqlx.DB, typ string) ([]*api.Key, error) {
 func getTokens(db *sqlx.DB) ([]*Token, error) {
 	var vks []*api.Key
 	if err := db.Select(&vks, "SELECT * FROM keys WHERE type = $1 AND token != $2", "edx25519", ""); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err

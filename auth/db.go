@@ -79,7 +79,7 @@ func (d *DB) add(auth *Auth) error {
 func (d *DB) List() ([]*Auth, error) {
 	var auths []*Auth
 	if err := d.Select(&auths, "SELECT * FROM auth"); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
@@ -94,7 +94,7 @@ func (d *DB) List() ([]*Auth, error) {
 func (d *DB) ListByType(typ Type) ([]*Auth, error) {
 	var auths []*Auth
 	if err := d.Select(&auths, "SELECT * FROM auth WHERE type = $1", typ); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err

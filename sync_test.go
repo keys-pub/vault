@@ -23,8 +23,8 @@ func TestSyncKeyring(t *testing.T) {
 	ctx := context.TODO()
 	ck := keys.NewEdX25519KeyFromSeed(testSeed(0xaf))
 
-	t.Logf("--- Client #1 ---")
-	v1, closeFn1 := testVaultSetup(t, env, keys.Rand32(), ck)
+	t.Logf("Client #1")
+	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
 	defer closeFn1()
 
 	// Add alice key
@@ -36,8 +36,8 @@ func TestSyncKeyring(t *testing.T) {
 	err = v1.Keyring().Sync(ctx)
 	require.NoError(t, err)
 
-	t.Logf("--- Client #2 ---")
-	v2, closeFn2 := testVaultSetup(t, env, keys.Rand32(), ck)
+	t.Logf("Client #2")
+	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
 	defer closeFn2()
 
 	err = v2.Keyring().Sync(ctx)
@@ -55,7 +55,7 @@ func TestSyncKeyring(t *testing.T) {
 	err = v2.Keyring().Sync(context.TODO())
 	require.NoError(t, err)
 
-	t.Logf("--- Client #1 ---")
+	t.Logf("Client #1")
 	err = v1.Keyring().Sync(ctx)
 	require.NoError(t, err)
 	out2, err := v1.Keyring().Key(alice.ID())
@@ -69,12 +69,16 @@ func TestSyncKeyring(t *testing.T) {
 	err = v1.Keyring().Sync(context.TODO())
 	require.NoError(t, err)
 
-	t.Logf("--- Client #2 ---")
+	t.Logf("Client #2")
 	err = v2.Keyring().Sync(context.TODO())
 	require.NoError(t, err)
 	out3, err := v1.Keyring().Key(alice.ID())
 	require.NoError(t, err)
 	require.Nil(t, out3)
+
+	// Sync again
+	err = v2.Keyring().Sync(context.TODO())
+	require.NoError(t, err)
 }
 
 func TestSyncCreateFind(t *testing.T) {
@@ -87,8 +91,8 @@ func TestSyncCreateFind(t *testing.T) {
 
 	channel := keys.NewEdX25519KeyFromSeed(testSeed(0xb0))
 
-	t.Logf("--- Client #1 ---")
-	v1, closeFn1 := testVaultSetup(t, env, keys.Rand32(), ck)
+	t.Logf("Client #1")
+	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
 	defer closeFn1()
 
 	err = v1.Register(context.TODO(), channel)
@@ -98,8 +102,8 @@ func TestSyncCreateFind(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, out.ID, channel.ID())
 
-	t.Logf("--- Client #2 ---")
-	v2, closeFn2 := testVaultSetup(t, env, keys.Rand32(), ck)
+	t.Logf("Client #2")
+	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
 	defer closeFn2()
 
 	err = v2.Keyring().Sync(context.TODO())
@@ -144,8 +148,8 @@ func TestSyncMessages(t *testing.T) {
 	channel := keys.NewEdX25519KeyFromSeed(testSeed(0xb0))
 	alice := keys.NewEdX25519KeyFromSeed(testSeed(0x01))
 
-	t.Logf("--- Client #1 ---")
-	v1, closeFn1 := testVaultSetup(t, env, keys.Rand32(), ck)
+	t.Logf("Client #1")
+	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
 	defer closeFn1()
 
 	err = v1.Register(context.TODO(), channel)
@@ -159,7 +163,7 @@ func TestSyncMessages(t *testing.T) {
 	msgs1 := []*message{}
 	receiver1 := func(ctx *vault.SyncContext, events []*vault.Event) error {
 		for _, event := range events {
-			msgs1 = append(msgs1, unmarshal(event.Data))
+			msgs1 = append(msgs1, unmarshalMessage(event.Data))
 		}
 		return nil
 	}
@@ -167,14 +171,14 @@ func TestSyncMessages(t *testing.T) {
 	err = v1.Sync(ctx, channel.ID(), receiver1)
 	require.NoError(t, err)
 
-	t.Logf("--- Client #2 ---")
-	v2, closeFn2 := testVaultSetup(t, env, keys.Rand32(), ck)
+	t.Logf("Client #2")
+	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
 	defer closeFn2()
 
 	msgs2 := []*message{}
 	receiver2 := func(ctx *vault.SyncContext, events []*vault.Event) error {
 		for _, event := range events {
-			msgs2 = append(msgs2, unmarshal(event.Data))
+			msgs2 = append(msgs2, unmarshalMessage(event.Data))
 		}
 		return nil
 	}
@@ -188,7 +192,7 @@ func TestSyncMessages(t *testing.T) {
 	err = v2.Sync(ctx, channel.ID(), receiver2)
 	require.NoError(t, err)
 
-	t.Logf("--- Client #1 ---")
+	t.Logf("Client #1")
 	err = v1.Sync(ctx, channel.ID(), receiver1)
 	require.NoError(t, err)
 
@@ -204,10 +208,10 @@ func TestSyncAliceBob(t *testing.T) {
 	ctx := context.TODO()
 	channel := keys.NewEdX25519KeyFromSeed(testSeed(0xb0))
 
-	t.Logf("--- Alice ---")
+	t.Logf("Alice")
 	cka := keys.NewEdX25519KeyFromSeed(testSeed(0xaf))
 	alice := keys.NewEdX25519KeyFromSeed(testSeed(0x01))
-	v1, closeFn1 := testVaultSetup(t, env, keys.Rand32(), cka)
+	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), cka)
 	defer closeFn1()
 
 	err = v1.Register(context.TODO(), channel)
@@ -221,17 +225,17 @@ func TestSyncAliceBob(t *testing.T) {
 	aliceMsgs := []*message{}
 	aliceReceiver := func(ctx *vault.SyncContext, events []*vault.Event) error {
 		for _, event := range events {
-			aliceMsgs = append(aliceMsgs, unmarshal(event.Data))
+			aliceMsgs = append(aliceMsgs, unmarshalMessage(event.Data))
 		}
 		return nil
 	}
 	err = v1.Sync(ctx, channel.ID(), aliceReceiver)
 	require.NoError(t, err)
 
-	t.Logf("--- Bob ---")
+	t.Logf("Bob")
 	ckb := keys.NewEdX25519KeyFromSeed(testSeed(0xbf))
 	bob := keys.NewEdX25519KeyFromSeed(testSeed(0x02))
-	v2, closeFn2 := testVaultSetup(t, env, keys.Rand32(), ckb)
+	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ckb)
 	defer closeFn2()
 
 	err = v2.Register(ctx, channel)
@@ -240,7 +244,7 @@ func TestSyncAliceBob(t *testing.T) {
 	bobMsgs := []*message{}
 	bobReceiver := func(ctx *vault.SyncContext, events []*vault.Event) error {
 		for _, event := range events {
-			bobMsgs = append(bobMsgs, unmarshal(event.Data))
+			bobMsgs = append(bobMsgs, unmarshalMessage(event.Data))
 		}
 		return nil
 	}
@@ -254,7 +258,7 @@ func TestSyncAliceBob(t *testing.T) {
 	err = v2.Sync(ctx, channel.ID(), bobReceiver)
 	require.NoError(t, err)
 
-	t.Logf("--- Alice ---")
+	t.Logf("Alice")
 	err = v1.Sync(ctx, channel.ID(), aliceReceiver)
 	require.NoError(t, err)
 
@@ -265,7 +269,7 @@ func testSeed(b byte) *[32]byte {
 	return keys.Bytes32(bytes.Repeat([]byte{b}, 32))
 }
 
-func unmarshal(b []byte) *message {
+func unmarshalMessage(b []byte) *message {
 	var m message
 	if err := msgpack.Unmarshal(b, &m); err != nil {
 		panic(err)

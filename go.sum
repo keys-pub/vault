@@ -169,9 +169,8 @@ github.com/keys-pub/keys-ext/auth/fido2 v0.0.0-20210327130412-59e9fcfcf22c h1:Uz
 github.com/keys-pub/keys-ext/auth/fido2 v0.0.0-20210327130412-59e9fcfcf22c/go.mod h1:gYlaSTxabOCy6S3/uKVlMx36KzwEs6D0bFy5wjwj4K4=
 github.com/keys-pub/keys-ext/firestore v0.0.0-20210326150845-39fd96e22101 h1:Jfib1vUGwFz1I4j9i08XoXygOIB4doGXyi8iR41yZdg=
 github.com/keys-pub/keys-ext/firestore v0.0.0-20210326150845-39fd96e22101/go.mod h1:XR5aJYx1qYfmWKXf9Hg+JexfYz71R9ju8o1ydn8Vtgk=
+github.com/keys-pub/keys-ext/http/api v0.0.0-20210326150845-39fd96e22101 h1:cJ1hkXuAZv1cPLVHK5MpKpLkqGNObB+BG3xWPsabUko=
 github.com/keys-pub/keys-ext/http/api v0.0.0-20210326150845-39fd96e22101/go.mod h1:FVm3GaGP/giGNJ4LyHG1L5YQANOnWst3D56UfLQynww=
-github.com/keys-pub/keys-ext/http/api v0.0.0-20210327130412-59e9fcfcf22c h1:AtQC0EcLuDobUQEkeBetlJmAcFTMnA7QEKQoiJ00KKU=
-github.com/keys-pub/keys-ext/http/api v0.0.0-20210327130412-59e9fcfcf22c/go.mod h1:FVm3GaGP/giGNJ4LyHG1L5YQANOnWst3D56UfLQynww=
 github.com/keys-pub/keys-ext/http/server v0.0.0-20210326151246-e22614b5a632 h1:PhO0GTq+ZyMttYphRvcS5unHuo36ZmD40XHuPRkATOs=
 github.com/keys-pub/keys-ext/http/server v0.0.0-20210326151246-e22614b5a632/go.mod h1:MxT1CW4gh3tsdwCg5wDnkuzAQHkknV0H7cLSycpjes8=
 github.com/keys-pub/keys-ext/ws/api v0.0.0-20210326150845-39fd96e22101 h1:dS+MRByWn3DcSJT/EoXh88Hd/fRWHrNjMTE61XnuKEA=

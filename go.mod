@@ -8,7 +8,6 @@ require (
 	github.com/jmoiron/sqlx v1.3.1
 	github.com/keys-pub/keys v0.1.21-0.20210326211358-fb3db764000f
 	github.com/keys-pub/keys-ext/auth/fido2 v0.0.0-20210327130412-59e9fcfcf22c
-	github.com/keys-pub/keys-ext/http/api v0.0.0-20210327130412-59e9fcfcf22c // indirect
 	github.com/keys-pub/keys-ext/http/server v0.0.0-20210326151246-e22614b5a632
 	github.com/labstack/echo/v4 v4.2.0 // indirect
 	github.com/lib/pq v1.9.0 // indirect
@@ -24,8 +23,6 @@ require (
 )
 
 // replace github.com/keys-pub/keys => ../keys
-
-// replace github.com/keys-pub/keys-ext/http/api => ../keys-ext/http/api
 
 // replace github.com/keys-pub/keys-ext/http/server => ../keys-ext/http/server
 

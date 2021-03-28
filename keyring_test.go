@@ -16,8 +16,8 @@ func TestKeyring(t *testing.T) {
 	defer env.CloseFn()
 
 	ck := keys.NewEdX25519KeyFromSeed(testSeed(0xaf))
-	vlt, closeFn1 := testVaultSetup(t, env, keys.Rand32(), ck)
-	defer closeFn1()
+	vlt, closeFn := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
+	defer closeFn()
 	kr := vlt.Keyring()
 
 	alice := api.NewKey(keys.NewEdX25519KeyFromSeed(testSeed(0x01))).WithLabels("alice")

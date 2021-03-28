@@ -18,7 +18,7 @@ func setConfig(db *sqlx.DB, key string, value string) error {
 func getConfig(db *sqlx.DB, key string) (string, error) {
 	var value string
 	if err := db.Get(&value, "SELECT value FROM config WHERE key=$1", key); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil
 		}
 		return "", errors.Wrapf(err, "failed to get config")
