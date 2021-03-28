@@ -95,7 +95,7 @@ func TestSyncCreateFind(t *testing.T) {
 	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", ck)
 	defer closeFn1()
 
-	err = v1.Register(context.TODO(), channel)
+	_, err = v1.Register(context.TODO(), channel)
 	require.NoError(t, err)
 
 	out, err := v1.Keyring().Key(channel.ID())
@@ -153,7 +153,7 @@ func TestSyncMessages(t *testing.T) {
 	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", ck)
 	defer closeFn1()
 
-	err = v1.Register(context.TODO(), channel)
+	_, err = v1.Register(context.TODO(), channel)
 	require.NoError(t, err)
 
 	err = v1.Add(channel.ID(), newMessage("msg1", alice.ID()).marshal())
@@ -215,7 +215,7 @@ func TestSyncAliceBob(t *testing.T) {
 	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", cka)
 	defer closeFn1()
 
-	err = v1.Register(context.TODO(), channel)
+	_, err = v1.Register(context.TODO(), channel)
 	require.NoError(t, err)
 
 	err = v1.Add(channel.ID(), newMessage("hi bob", alice.ID()).marshal())
@@ -239,7 +239,7 @@ func TestSyncAliceBob(t *testing.T) {
 	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, "testpassword2", ckb)
 	defer closeFn2()
 
-	err = v2.Register(ctx, channel)
+	_, err = v2.Register(ctx, channel)
 	require.NoError(t, err)
 
 	bobMsgs := []*message{}

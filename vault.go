@@ -224,26 +224,26 @@ func (v *Vault) Lock() error {
 // You can register a key that already exists.
 // You can sync a keyring vault to get registered vault keys as well.
 // Requires Unlock.
-func (v *Vault) Register(ctx context.Context, key *keys.EdX25519Key) error {
+func (v *Vault) Register(ctx context.Context, key *keys.EdX25519Key) (*api.Key, error) {
 	if v.db == nil {
-		return ErrLocked
+		return nil, ErrLocked
 	}
 	vk := api.NewKey(key).Created(v.clock.NowMillis())
 	token, err := v.client.Register(ctx, key)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	vk.Token = token
 
 	if err := v.Keyring().Set(vk); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err = v.kr.Sync(ctx); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return vk, nil
 }
 
 // Add to vault.

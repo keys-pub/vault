@@ -33,7 +33,7 @@ func TestChanges(t *testing.T) {
 	defer closeFn1()
 
 	for _, channel := range channels {
-		err = v1.Register(context.TODO(), channel)
+		_, err = v1.Register(context.TODO(), channel)
 		require.NoError(t, err)
 		err = v1.Add(channel.ID(), newMessage("msg1", alice.ID()).marshal())
 		require.NoError(t, err)
