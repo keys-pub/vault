@@ -138,7 +138,10 @@ func (v *Vault) Setup(mk *[32]byte, opt ...SetupOption) error {
 		return kerr
 	}
 
-	v.unlocked(mk, ck, db)
+	if err := v.unlocked(mk, ck, db); err != nil {
+		onErrFn()
+		return kerr
+	}
 
 	logger.Debugf("Setup complete")
 	return nil

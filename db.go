@@ -64,10 +64,10 @@ func TransactDB(db *sqlx.DB, txFn func(*sqlx.Tx) error) (err error) {
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			panic(p) // Re-throw panic after Rollback
 		} else if err != nil {
-			tx.Rollback() // err is non-nil; don't change it
+			_ = tx.Rollback() // err is non-nil; don't change it
 		} else {
 			err = tx.Commit() // err is nil; returns Commit error
 		}
