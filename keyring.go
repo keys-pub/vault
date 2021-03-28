@@ -211,31 +211,6 @@ func getKey(db *sqlx.DB, kid keys.ID) (*api.Key, error) {
 	return &key, nil
 }
 
-// func getKeyWithLabel(db *sqlx.DB, label string) (*api.Key, error) {
-// 	var key api.Key
-// 	sqlLabel := "%^" + label + "$%"
-// 	if err := db.Get(&key, "SELECT * FROM keys WHERE labels LIKE $1", sqlLabel); err != nil {
-// 		if errors.Is(err, sql.ErrNoRows) {
-// 			return nil, nil
-// 		}
-// 		return nil, err
-// 	}
-// 	return &key, nil
-// }
-
-func getKeysWithLabel(db *sqlx.DB, label string) ([]*api.Key, error) {
-	logger.Debugf("Get keys with label %q", label)
-	var out []*api.Key
-	sqlLabel := "%^" + label + "$%"
-	if err := db.Select(&out, "SELECT * FROM keys WHERE labels LIKE $1", sqlLabel); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return out, nil
-}
-
 func getKeys(db *sqlx.DB) ([]*api.Key, error) {
 	var vks []*api.Key
 	if err := db.Select(&vks, "SELECT * FROM keys ORDER BY id"); err != nil {
