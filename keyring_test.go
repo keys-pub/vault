@@ -31,7 +31,7 @@ func TestKeyring(t *testing.T) {
 	err = kr.Set(charlie)
 	require.NoError(t, err)
 
-	sks, err := kr.KeysByType(string(keys.X25519))
+	sks, err := kr.KeysWithType(string(keys.X25519))
 	require.NoError(t, err)
 	require.Equal(t, 1, len(sks))
 	require.Equal(t, sks[0].ID, charlie.ID)

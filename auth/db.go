@@ -10,8 +10,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v4"
 
-	// For sqlite3 (we use sqlcipher driver because it would conflict if we used
-	// regular sqlite driver)
+	// For sqlite3 (we use sqlcipher driver because it would conflict with vault
+	// if we used regular sqlite driver).
 	_ "github.com/mutecomm/go-sqlcipher/v4"
 )
 

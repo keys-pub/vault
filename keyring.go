@@ -113,12 +113,20 @@ func (k *Keyring) Keys() ([]*api.Key, error) {
 	return getKeys(k.vlt.DB())
 }
 
-// KeysByType in vault.
-func (k *Keyring) KeysByType(typ string) ([]*api.Key, error) {
+// KeysWithType in vault.
+func (k *Keyring) KeysWithType(typ string) ([]*api.Key, error) {
 	if err := k.check(); err != nil {
 		return nil, err
 	}
 	return getKeysByType(k.vlt.DB(), typ)
+}
+
+// KeysWithLabel in vault.
+func (k *Keyring) KeysWithLabel(typ string) ([]*api.Key, error) {
+	if err := k.check(); err != nil {
+		return nil, err
+	}
+	return getKeysByLabel(k.vlt.DB(), typ)
 }
 
 // Key lookup by id.
@@ -244,6 +252,19 @@ func getTokens(db *sqlx.DB) ([]*client.Token, error) {
 	out := []*client.Token{}
 	for _, k := range vks {
 		out = append(out, &client.Token{KID: k.ID, Token: k.Token})
+	}
+	return out, nil
+}
+
+func getKeysByLabel(db *sqlx.DB, label string) ([]*api.Key, error) {
+	logger.Debugf("Get keys with label %q", label)
+	var out []*api.Key
+	sqlLabel := "%^" + label + "$%"
+	if err := db.Select(&out, "SELECT * FROM keys WHERE labels LIKE $1", sqlLabel); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	return out, nil
 }
