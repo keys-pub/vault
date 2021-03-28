@@ -3,7 +3,6 @@ package vault
 import (
 	"context"
 	"os"
-	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
@@ -11,6 +10,7 @@ import (
 	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/keys/tsutil"
 	"github.com/keys-pub/vault/auth"
+	"github.com/keys-pub/vault/client"
 	"github.com/vmihailenco/msgpack/v4"
 
 	"github.com/pkg/errors"
@@ -31,7 +31,7 @@ type Vault struct {
 	db   *sqlx.DB
 
 	clock  tsutil.Clock
-	client *Client
+	client *client.Client
 
 	auth *auth.DB
 
@@ -52,20 +52,20 @@ type Vault struct {
 func New(path string, auth *auth.DB, opt ...Option) (*Vault, error) {
 	opts := newOptions(opt...)
 
-	client := opts.Client
-	if client == nil {
-		c, err := NewClient("https://keys.pub")
+	cl := opts.Client
+	if cl == nil {
+		c, err := client.New("https://keys.pub")
 		if err != nil {
 			return nil, err
 		}
-		client = c
+		cl = c
 	}
 
 	clock := tsutil.NewClock()
 
 	v := &Vault{
 		path:   path,
-		client: client,
+		client: cl,
 		clock:  clock,
 		auth:   auth,
 	}
@@ -266,14 +266,6 @@ func (v *Vault) Add(vid keys.ID, b []byte) error {
 	return nil
 }
 
-// Event pulled from remote.
-type Event struct {
-	VID             keys.ID   `db:"vid"`
-	Data            []byte    `db:"data"`
-	RemoteIndex     int64     `db:"ridx"`
-	RemoteTimestamp time.Time `db:"rts"`
-}
-
 // Keyring for keys in vault.
 func (v *Vault) Keyring() *Keyring {
 	return v.kr
@@ -294,7 +286,7 @@ func (v *Vault) ClientKey() *api.Key {
 }
 
 // Client is the vault client.
-func (v *Vault) Client() *Client {
+func (v *Vault) Client() *client.Client {
 	return v.client
 }
 

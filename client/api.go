@@ -1,4 +1,4 @@
-package vault
+package client
 
 import (
 	"context"
@@ -15,6 +15,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v4"
 )
+
+// Event pulled from remote.
+type Event struct {
+	VID             keys.ID   `db:"vid"`
+	Data            []byte    `db:"data"`
+	RemoteIndex     int64     `db:"ridx"`
+	RemoteTimestamp time.Time `db:"rts"`
+}
 
 // Events ...
 type Events struct {

@@ -6,8 +6,15 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys/api"
+	"github.com/keys-pub/vault/client"
 	"github.com/pkg/errors"
 )
+
+// Event alias.
+type Event = client.Event
+
+// Events alias.
+type Events = client.Events
 
 // Sync a specific key with receiver.
 func (v *Vault) Sync(ctx context.Context, vid keys.ID, receiver Receiver) error {
@@ -26,12 +33,12 @@ func (v *Vault) Sync(ctx context.Context, vid keys.ID, receiver Receiver) error 
 // Syncer syncs.
 type Syncer struct {
 	db       *sqlx.DB
-	client   *Client
+	client   *client.Client
 	receiver Receiver
 }
 
 // NewSyncer creates a Syncer.
-func NewSyncer(db *sqlx.DB, client *Client, receiver Receiver) *Syncer {
+func NewSyncer(db *sqlx.DB, client *client.Client, receiver Receiver) *Syncer {
 	return &Syncer{
 		db:       db,
 		client:   client,

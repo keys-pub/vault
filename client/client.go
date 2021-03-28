@@ -1,4 +1,4 @@
-package vault
+package client
 
 import (
 	"bytes"
@@ -27,8 +27,8 @@ type Client struct {
 	clock      tsutil.Clock
 }
 
-// NewClient creates a Client for the vault Web API.
-func NewClient(urs string) (*Client, error) {
+// New creates a Client for the vault Web API.
+func New(urs string) (*Client, error) {
 	urs = strings.TrimSuffix(urs, "/")
 	urp, err := url.Parse(urs)
 	if err != nil {

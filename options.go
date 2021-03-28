@@ -3,11 +3,12 @@ package vault
 import (
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys/tsutil"
+	"github.com/keys-pub/vault/client"
 )
 
 // Options for vault.
 type Options struct {
-	Client *Client
+	Client *client.Client
 	Clock  tsutil.Clock
 }
 
@@ -32,7 +33,7 @@ func WithClock(clock tsutil.Clock) Option {
 }
 
 // WithClient ...
-func WithClient(client *Client) Option {
+func WithClient(client *client.Client) Option {
 	return func(o *Options) {
 		o.Client = client
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys/api"
+	"github.com/keys-pub/vault/client"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v4"
 )
@@ -231,7 +232,7 @@ func getKeysByType(db *sqlx.DB, typ string) ([]*api.Key, error) {
 	return vks, nil
 }
 
-func getTokens(db *sqlx.DB) ([]*Token, error) {
+func getTokens(db *sqlx.DB) ([]*client.Token, error) {
 	var vks []*api.Key
 	if err := db.Select(&vks, "SELECT * FROM keys WHERE type = $1 AND token != $2", "edx25519", ""); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -239,9 +240,9 @@ func getTokens(db *sqlx.DB) ([]*Token, error) {
 		}
 		return nil, err
 	}
-	out := []*Token{}
+	out := []*client.Token{}
 	for _, k := range vks {
-		out = append(out, &Token{KID: k.ID, Token: k.Token})
+		out = append(out, &client.Token{KID: k.ID, Token: k.Token})
 	}
 	return out, nil
 }

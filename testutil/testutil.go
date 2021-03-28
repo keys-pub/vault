@@ -14,6 +14,7 @@ import (
 	"github.com/keys-pub/keys/http"
 	"github.com/keys-pub/keys/tsutil"
 	"github.com/keys-pub/vault"
+	"github.com/keys-pub/vault/client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -48,8 +49,8 @@ func NewEnv(t *testing.T, logger server.Logger) *Env {
 }
 
 // NewClient creates a test client.
-func NewClient(t *testing.T, env *Env) *vault.Client {
-	cl, err := vault.NewClient(env.httpServer.URL)
+func NewClient(t *testing.T, env *Env) *client.Client {
+	cl, err := client.New(env.httpServer.URL)
 	require.NoError(t, err)
 	cl.SetHTTPClient(env.httpServer.Client())
 	cl.SetClock(env.clock)
