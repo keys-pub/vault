@@ -110,6 +110,7 @@ func (v *Vault) Setup(mk *[32]byte, opt ...SetupOption) error {
 		return errors.Errorf("already setup")
 	}
 
+	// This creates a new db file (and on error we'll remove it).
 	db, err := openDB(v.path, mk)
 	if err != nil {
 		return err

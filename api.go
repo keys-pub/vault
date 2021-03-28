@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/keys-pub/keys"
-	"github.com/keys-pub/keys-ext/http/api"
 	"github.com/keys-pub/keys/dstore"
+	"github.com/keys-pub/keys/dstore/events"
 	"github.com/keys-pub/keys/tsutil"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v4"
@@ -21,6 +21,19 @@ type Events struct {
 	Events    []*Event
 	Index     int64
 	Truncated bool
+}
+
+// RemoteStatus ...
+type RemoteStatus struct {
+	ID        keys.ID `json:"id" msgpack:"id"`
+	Index     int64   `json:"idx" msgpack:"idx"`
+	Timestamp int64   `json:"ts" msgpack:"ts"`
+}
+
+// Token ...
+type Token struct {
+	KID   keys.ID `json:"kid"`
+	Token string  `json:"token"`
 }
 
 // Events from vault API.
@@ -43,7 +56,11 @@ func (c *Client) Events(ctx context.Context, key *keys.EdX25519Key, index int64)
 		return nil, nil
 	}
 
-	var out api.VaultResponse
+	var out struct {
+		Vault     []*events.Event `json:"vault" msgpack:"vault"`
+		Index     int64           `json:"idx" msgpack:"idx"`
+		Truncated bool            `json:"truncated,omitempty" msgpack:"trunc,omitempty"`
+	}
 	if err := msgpack.Unmarshal(resp.Data, &out); err != nil {
 		return nil, err
 	}
@@ -127,7 +144,7 @@ func (c *Client) Register(ctx context.Context, vault *keys.EdX25519Key) (string,
 	if err != nil {
 		return "", err
 	}
-	var token api.VaultToken
+	var token Token
 	if err := json.Unmarshal(resp.Data, &token); err != nil {
 		return "", err
 	}
@@ -154,15 +171,11 @@ func (c *Client) Get(ctx context.Context, vault *keys.EdX25519Key) (*Token, erro
 	return &token, nil
 }
 
-// Token alias.
-type Token = api.VaultToken
-
-// RemoteStatus alias.
-type RemoteStatus = api.VaultStatus
-
 // Status ...
 func (c *Client) Status(ctx context.Context, tokens []*Token) ([]*RemoteStatus, error) {
-	statusReq := api.VaultsStatusRequest{
+	statusReq := struct {
+		Vaults map[keys.ID]string `json:"vaults,omitempty" msgpack:"vaults,omitempty"`
+	}{
 		Vaults: map[keys.ID]string{},
 	}
 	for _, t := range tokens {
@@ -183,7 +196,9 @@ func (c *Client) Status(ctx context.Context, tokens []*Token) ([]*RemoteStatus, 
 		return nil, err
 	}
 
-	var out api.VaultsStatusResponse
+	var out struct {
+		Vaults []*RemoteStatus `json:"vaults,omitempty" msgpack:"vaults,omitempty"`
+	}
 	if err := json.Unmarshal(resp.Data, &out); err != nil {
 		return nil, err
 	}

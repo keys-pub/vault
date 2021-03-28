@@ -15,7 +15,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/keys-pub/keys"
-	"github.com/keys-pub/keys-ext/http/api"
 	"github.com/keys-pub/keys/http"
 	"github.com/keys-pub/keys/tsutil"
 	"github.com/pkg/errors"
@@ -87,6 +86,15 @@ func (c *Client) SetClock(clock tsutil.Clock) {
 	c.clock = clock
 }
 
+type apiResponse struct {
+	Error *apiError `json:"error,omitempty"`
+}
+
+type apiError struct {
+	Message string `json:"message,omitempty"`
+	Status  int    `json:"status,omitempty"`
+}
+
 func checkResponse(resp *http.Response) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil
@@ -101,15 +109,15 @@ func checkResponse(resp *http.Response) error {
 	if len(b) == 0 {
 		return err
 	}
-	var respVal api.Response
-	if err := json.Unmarshal(b, &respVal); err != nil {
+	var apiResp apiResponse
+	if err := json.Unmarshal(b, &apiResp); err != nil {
 		if utf8.Valid(b) {
 			return errors.New(string(b))
 		}
 		return errors.Errorf("error response not valid utf8")
 	}
-	if respVal.Error != nil {
-		err.Message = respVal.Error.Message
+	if apiResp.Error != nil {
+		err.Message = apiResp.Error.Message
 	}
 
 	return err
