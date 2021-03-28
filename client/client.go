@@ -255,8 +255,3 @@ func (c *Client) response(path string, resp *http.Response) (*Response, error) {
 	out.UpdatedAt = updatedAt
 	return out, nil
 }
-
-func secretKey(key *keys.EdX25519Key) *[32]byte {
-	b := keys.HKDFSHA256(key.Seed()[:], 32, nil, []byte("keys.pub/vault"))
-	return keys.Bytes32(b)
-}

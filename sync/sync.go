@@ -88,7 +88,7 @@ func (s *Syncer) Push(ctx context.Context, key *api.Key) error {
 		}
 
 		logger.Infof("Pushing %d-%d (%db) %s...", from, to, total, key.ID)
-		if err := s.client.Post(ctx, key.AsEdX25519(), out); err != nil {
+		if err := s.client.Post(ctx, key.AsEdX25519(), out, key.AsEdX25519()); err != nil {
 			return err
 		}
 		logger.Infof("Clearing push (<=%d)...", to)

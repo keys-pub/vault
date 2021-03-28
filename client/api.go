@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/keys-pub/keys"
+	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/keys/dstore"
 	"github.com/keys-pub/keys/dstore/events"
 	"github.com/keys-pub/keys/tsutil"
@@ -22,6 +23,7 @@ type Event struct {
 	Data            []byte    `db:"data"`
 	RemoteIndex     int64     `db:"ridx"`
 	RemoteTimestamp time.Time `db:"rts"`
+	Sender          keys.ID   `db:"sender"`
 }
 
 // Events ...
@@ -74,10 +76,9 @@ func (c *Client) Events(ctx context.Context, key *keys.EdX25519Key, index int64)
 	}
 
 	// Decrypt
-	sk := secretKey(key)
 	events := []*Event{}
 	for _, e := range out.Vault {
-		b, err := keys.SecretBoxOpen(e.Data, sk)
+		b, pk, err := Decrypt(e.Data, key)
 		if err != nil {
 			return nil, err
 		}
@@ -86,6 +87,7 @@ func (c *Client) Events(ctx context.Context, key *keys.EdX25519Key, index int64)
 			RemoteIndex:     e.Index,
 			RemoteTimestamp: tsutil.ParseMillis(e.Timestamp),
 			VID:             key.ID(),
+			Sender:          api.NewKey(pk).ID,
 		}
 		events = append(events, event)
 	}
@@ -98,17 +100,19 @@ func (c *Client) Events(ctx context.Context, key *keys.EdX25519Key, index int64)
 }
 
 // Post events to the vault API with a key.
-func (c *Client) Post(ctx context.Context, key *keys.EdX25519Key, data [][]byte) error {
+func (c *Client) Post(ctx context.Context, key *keys.EdX25519Key, data [][]byte, sender *keys.EdX25519Key) error {
 	if key == nil {
 		return errors.Errorf("no api key")
 	}
 	path := dstore.Path("vault", key.ID()) + ".msgpack"
 
 	// Encrypt
-	sk := secretKey(key)
 	out := [][]byte{}
 	for _, d := range data {
-		b := keys.SecretBoxSeal(d, sk)
+		b, err := Encrypt(d, key.ID(), sender)
+		if err != nil {
+			return err
+		}
 		out = append(out, b)
 	}
 
@@ -214,4 +218,37 @@ func (c *Client) Status(ctx context.Context, tokens []*Token) ([]*RemoteStatus, 
 		return out.Vaults[i].Timestamp > out.Vaults[j].Timestamp
 	})
 	return out.Vaults, nil
+}
+
+// Encrypt does crypto_box_seal(pk+crypto_box(msgpack(i))).
+func Encrypt(b []byte, recipient keys.ID, sender *keys.EdX25519Key) ([]byte, error) {
+	pk := api.NewKey(recipient).AsX25519Public()
+	if pk == nil {
+		return nil, errors.Errorf("invalid recipient")
+	}
+	sk := sender.X25519Key()
+	encrypted := keys.BoxSeal(b, pk, sk)
+	box := append(sk.Public(), encrypted...)
+	anonymized := keys.CryptoBoxSeal(box, pk)
+	return anonymized, nil
+}
+
+// Decrypt value, returning sender public key.
+func Decrypt(b []byte, key *keys.EdX25519Key) ([]byte, *keys.X25519PublicKey, error) {
+	box, err := keys.CryptoBoxSealOpen(b, key.X25519Key())
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to decrypt")
+	}
+	if len(box) < 32 {
+		return nil, nil, errors.Wrapf(errors.Errorf("not enough bytes"), "failed to decrypt")
+	}
+	pk := keys.NewX25519PublicKey(keys.Bytes32(box[:32]))
+	encrypted := box[32:]
+
+	decrypted, err := keys.BoxOpen(encrypted, pk, key.X25519Key())
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to decrypt")
+	}
+
+	return decrypted, pk, nil
 }
