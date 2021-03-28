@@ -2,6 +2,7 @@ package vault
 
 import (
 	"github.com/keys-pub/keys"
+	"github.com/keys-pub/vault/auth"
 )
 
 // SetupPassword setup vault with a password.
@@ -17,15 +18,15 @@ func (v *Vault) SetupPassword(password string, opt ...SetupOption) (*[32]byte, e
 }
 
 // RegisterPassword adds a password.
-func (v *Vault) RegisterPassword(password string) error {
+func (v *Vault) RegisterPassword(password string) (*auth.Auth, error) {
 	if v.mk == nil {
-		return ErrLocked
+		return nil, ErrLocked
 	}
-	_, err := v.auth.RegisterPassword(password, v.mk)
+	reg, err := v.auth.RegisterPassword(password, v.mk)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return reg, nil
 }
 
 // UnlockWithPassword opens vault with a password.

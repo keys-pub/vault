@@ -23,21 +23,29 @@ func TestVaultSetup(t *testing.T) {
 	mk := keys.Rand32()
 
 	err = vlt.Unlock(mk)
-	require.EqualError(t, err, "needs setup")
+	require.EqualError(t, err, "setup needed")
+	require.Equal(t, vault.SetupNeeded, vlt.Status())
 
 	err = vlt.Setup(mk)
 	require.NoError(t, err)
-	require.False(t, vlt.NeedsSetup())
+	require.Equal(t, vault.Unlocked, vlt.Status())
+	err = vlt.Lock()
+	require.NoError(t, err)
+
+	err = vlt.Setup(mk)
+	require.EqualError(t, err, "already setup")
 
 	// Unlock multiple times
 	err = vlt.Unlock(mk)
 	require.NoError(t, err)
+	require.Equal(t, vault.Unlocked, vlt.Status())
 	err = vlt.Unlock(mk)
 	require.NoError(t, err)
 
 	// Lock, unlock
 	err = vlt.Lock()
 	require.NoError(t, err)
+	require.Equal(t, vault.Locked, vlt.Status())
 	err = vlt.Unlock(mk)
 	require.NoError(t, err)
 }
@@ -50,7 +58,7 @@ func TestVaultInvalidPassword(t *testing.T) {
 
 	_, err = vlt.SetupPassword("testpassword")
 	require.NoError(t, err)
-	require.False(t, vlt.NeedsSetup())
+	require.Equal(t, vault.Unlocked, vlt.Status())
 
 	_, err = vlt.UnlockWithPassword("invalidpassword")
 	require.EqualError(t, err, "invalid auth")

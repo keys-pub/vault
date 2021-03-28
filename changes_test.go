@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/keys-pub/keys"
-	httpapi "github.com/keys-pub/keys-ext/http/api"
 	"github.com/keys-pub/vault"
 	"github.com/keys-pub/vault/testutil"
 	"github.com/stretchr/testify/require"
@@ -35,7 +34,7 @@ func TestChanges(t *testing.T) {
 	for _, channel := range channels {
 		err = v1.Register(context.TODO(), channel)
 		require.NoError(t, err)
-		err = v1.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("msg1")))
+		err = v1.Add(channel.ID(), newMessage("msg1", alice.ID()).marshal())
 		require.NoError(t, err)
 		empty := func(ctx *vault.SyncContext, events []*vault.Event) error { return nil }
 		err = v1.Sync(ctx, channel.ID(), empty)

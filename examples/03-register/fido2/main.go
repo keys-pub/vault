@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/keys-pub/keys-ext/auth/fido2"
 	"github.com/keys-pub/vault"
 	"github.com/keys-pub/vault/auth"
@@ -65,9 +66,11 @@ func main() {
 
 	// Register
 	fmt.Println("Register FIDO2 hmac-secret...")
-	if err := vlt.RegisterFIDO2HMACSecret(context.TODO(), hs, pin); err != nil {
+	reg, err := vlt.RegisterFIDO2HMACSecret(context.TODO(), hs, pin)
+	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Printf("Registered: %s", spew.Sdump(reg))
 }
 
 func goBin(file string) string {

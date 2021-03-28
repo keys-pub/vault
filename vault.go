@@ -22,6 +22,9 @@ var ErrLocked = errors.New("vault is locked")
 // ErrInvalidAuth if auth is invalid.
 var ErrInvalidAuth = auth.ErrInvalidAuth
 
+// ErrSetupNeeded if setup if needed.
+var ErrSetupNeeded = errors.New("setup needed")
+
 // Vault syncs secrets.
 type Vault struct {
 	path string
@@ -68,12 +71,30 @@ func New(path string, auth *auth.DB, opt ...Option) (*Vault, error) {
 	}, nil
 }
 
-// NeedsSetup returns true if vault database doesn't exist.
-func (v *Vault) NeedsSetup() bool {
+// Auth returns auth db.
+func (v *Vault) Auth() *auth.DB {
+	return v.auth
+}
+
+// Status for vault.
+type Status string
+
+// Status of vault.
+const (
+	Locked      Status = "locked"
+	Unlocked    Status = "unlocked"
+	SetupNeeded Status = "setup-needed"
+)
+
+// Status returns vault status.
+func (v *Vault) Status() Status {
 	if _, err := os.Stat(v.path); os.IsNotExist(err) {
-		return true
+		return SetupNeeded
 	}
-	return false
+	if v.db == nil {
+		return Locked
+	}
+	return Unlocked
 }
 
 // Setup vault.
@@ -85,12 +106,17 @@ func (v *Vault) Setup(mk *[32]byte, opt ...SetupOption) error {
 	}
 	opts := newSetupOptions(opt...)
 
+	if _, err := os.Stat(v.path); err == nil {
+		return errors.Errorf("already setup")
+	}
+
 	db, err := openDB(v.path, mk)
 	if err != nil {
 		return err
 	}
 	onErrFn := func() {
 		_ = db.Close()
+		_ = os.Remove(v.path)
 	}
 
 	if err := initTables(db); err != nil {
@@ -127,6 +153,10 @@ func (v *Vault) Unlock(mk *[32]byte) error {
 		return nil
 	}
 
+	if _, err := os.Stat(v.path); os.IsNotExist(err) {
+		return ErrSetupNeeded
+	}
+
 	db, err := openDB(v.path, mk)
 	if err != nil {
 		return err
@@ -147,7 +177,7 @@ func (v *Vault) Unlock(mk *[32]byte) error {
 	}
 	if ck == nil {
 		onErrFn()
-		return errors.Errorf("needs setup")
+		return errors.Errorf("missing client key")
 	}
 
 	if err := v.unlocked(mk, ck, db); err != nil {
@@ -311,4 +341,8 @@ func importClientKey(db *sqlx.DB, key *keys.EdX25519Key, clock tsutil.Clock) (*a
 	}
 
 	return ck, nil
+}
+
+func (v *Vault) Reset() error {
+	return errors.Errorf("not implemented")
 }

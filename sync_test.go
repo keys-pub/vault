@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/keys-pub/keys"
-	httpapi "github.com/keys-pub/keys-ext/http/api"
 	"github.com/keys-pub/keys/api"
+	"github.com/keys-pub/keys/encoding"
 	"github.com/keys-pub/vault"
 	"github.com/keys-pub/vault/testutil"
 	"github.com/stretchr/testify/require"
@@ -110,6 +110,28 @@ func TestSyncCreateFind(t *testing.T) {
 	require.Equal(t, out2.ID, channel.ID())
 }
 
+type message struct {
+	ID     string  `msgpack:"id"`
+	Text   string  `msgpack:"text"`
+	Sender keys.ID `msgpack:"sender"`
+}
+
+func newMessage(text string, sender keys.ID) *message {
+	return &message{
+		ID:     encoding.MustEncode(keys.RandBytes(32), encoding.Base62),
+		Text:   text,
+		Sender: sender,
+	}
+}
+
+func (m message) marshal() []byte {
+	b, err := msgpack.Marshal(m)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
 func TestSyncMessages(t *testing.T) {
 	// vault.SetLogger(vault.NewLogger(vault.DebugLevel))
 	var err error
@@ -129,12 +151,12 @@ func TestSyncMessages(t *testing.T) {
 	err = v1.Register(context.TODO(), channel)
 	require.NoError(t, err)
 
-	err = v1.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("msg1")))
+	err = v1.Add(channel.ID(), newMessage("msg1", alice.ID()).marshal())
 	require.NoError(t, err)
-	err = v1.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("msg2")))
+	err = v1.Add(channel.ID(), newMessage("msg2", alice.ID()).marshal())
 	require.NoError(t, err)
 
-	msgs1 := []*httpapi.Message{}
+	msgs1 := []*message{}
 	receiver1 := func(ctx *vault.SyncContext, events []*vault.Event) error {
 		for _, event := range events {
 			msgs1 = append(msgs1, unmarshal(event.Data))
@@ -149,7 +171,7 @@ func TestSyncMessages(t *testing.T) {
 	v2, closeFn2 := testVaultSetup(t, env, keys.Rand32(), ck)
 	defer closeFn2()
 
-	msgs2 := []*httpapi.Message{}
+	msgs2 := []*message{}
 	receiver2 := func(ctx *vault.SyncContext, events []*vault.Event) error {
 		for _, event := range events {
 			msgs2 = append(msgs2, unmarshal(event.Data))
@@ -160,7 +182,7 @@ func TestSyncMessages(t *testing.T) {
 	err = v2.Sync(ctx, channel.ID(), receiver2)
 	require.NoError(t, err)
 
-	err = v2.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("msg3")))
+	err = v2.Add(channel.ID(), newMessage("msg3", alice.ID()).marshal())
 	require.NoError(t, err)
 
 	err = v2.Sync(ctx, channel.ID(), receiver2)
@@ -191,12 +213,12 @@ func TestSyncAliceBob(t *testing.T) {
 	err = v1.Register(context.TODO(), channel)
 	require.NoError(t, err)
 
-	err = v1.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("hi bob")))
+	err = v1.Add(channel.ID(), newMessage("hi bob", alice.ID()).marshal())
 	require.NoError(t, err)
-	err = v1.Add(channel.ID(), marshal(httpapi.NewMessage(alice.ID()).WithText("what's for lunch?")))
+	err = v1.Add(channel.ID(), newMessage("what's for lunch?", alice.ID()).marshal())
 	require.NoError(t, err)
 
-	aliceMsgs := []*httpapi.Message{}
+	aliceMsgs := []*message{}
 	aliceReceiver := func(ctx *vault.SyncContext, events []*vault.Event) error {
 		for _, event := range events {
 			aliceMsgs = append(aliceMsgs, unmarshal(event.Data))
@@ -215,7 +237,7 @@ func TestSyncAliceBob(t *testing.T) {
 	err = v2.Register(ctx, channel)
 	require.NoError(t, err)
 
-	bobMsgs := []*httpapi.Message{}
+	bobMsgs := []*message{}
 	bobReceiver := func(ctx *vault.SyncContext, events []*vault.Event) error {
 		for _, event := range events {
 			bobMsgs = append(bobMsgs, unmarshal(event.Data))
@@ -226,7 +248,7 @@ func TestSyncAliceBob(t *testing.T) {
 	err = v2.Sync(ctx, channel.ID(), bobReceiver)
 	require.NoError(t, err)
 
-	err = v2.Add(channel.ID(), marshal(httpapi.NewMessage(bob.ID()).WithText("homemade mcribs")))
+	err = v2.Add(channel.ID(), newMessage("homemade mcribs", bob.ID()).marshal())
 	require.NoError(t, err)
 
 	err = v2.Sync(ctx, channel.ID(), bobReceiver)
@@ -243,16 +265,8 @@ func testSeed(b byte) *[32]byte {
 	return keys.Bytes32(bytes.Repeat([]byte{b}, 32))
 }
 
-func marshal(i interface{}) []byte {
-	b, err := msgpack.Marshal(i)
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
-func unmarshal(b []byte) *httpapi.Message {
-	var m httpapi.Message
+func unmarshal(b []byte) *message {
+	var m message
 	if err := msgpack.Unmarshal(b, &m); err != nil {
 		panic(err)
 	}

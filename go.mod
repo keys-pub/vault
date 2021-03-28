@@ -7,8 +7,8 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/jmoiron/sqlx v1.3.1
 	github.com/keys-pub/keys v0.1.21-0.20210326211358-fb3db764000f
-	github.com/keys-pub/keys-ext/auth/fido2 v0.0.0-20210326151246-e22614b5a632
-	github.com/keys-pub/keys-ext/http/api v0.0.0-20210326151246-e22614b5a632
+	github.com/keys-pub/keys-ext/auth/fido2 v0.0.0-20210327130412-59e9fcfcf22c
+	github.com/keys-pub/keys-ext/http/api v0.0.0-20210327130412-59e9fcfcf22c
 	github.com/keys-pub/keys-ext/http/server v0.0.0-20210326151246-e22614b5a632
 	github.com/labstack/echo/v4 v4.2.0 // indirect
 	github.com/lib/pq v1.9.0 // indirect
@@ -17,7 +17,8 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/vmihailenco/msgpack/v4 v4.3.12
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
-	golang.org/x/net v0.0.0-20210326060303-6b1517762897 // indirect
+	golang.org/x/net v0.0.0-20210326220855-61e056675ecf // indirect
+	golang.org/x/sys v0.0.0-20210326220804-49726bf1d181 // indirect
 	google.golang.org/genproto v0.0.0-20210325224202-eed09b1b5210 // indirect
 	google.golang.org/grpc v1.36.1 // indirect
 )

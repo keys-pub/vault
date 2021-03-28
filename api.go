@@ -157,11 +157,11 @@ func (c *Client) Get(ctx context.Context, vault *keys.EdX25519Key) (*Token, erro
 // Token alias.
 type Token = api.VaultToken
 
-// Status alias.
-type Status = api.VaultStatus
+// RemoteStatus alias.
+type RemoteStatus = api.VaultStatus
 
 // Status ...
-func (c *Client) Status(ctx context.Context, tokens []*Token) ([]*Status, error) {
+func (c *Client) Status(ctx context.Context, tokens []*Token) ([]*RemoteStatus, error) {
 	statusReq := api.VaultsStatusRequest{
 		Vaults: map[keys.ID]string{},
 	}

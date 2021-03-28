@@ -14,6 +14,11 @@ func (v *Vault) SetFIDO2Plugin(fido2Plugin fido2.FIDO2Server) {
 	v.fido2Plugin = fido2Plugin
 }
 
+// FIDO2Plugin if set.
+func (v *Vault) FIDO2Plugin() fido2.FIDO2Server {
+	return v.fido2Plugin
+}
+
 // FIDO2Devices lists FIDO2 devices.
 func (v *Vault) FIDO2Devices(ctx context.Context) ([]*fido2.Device, error) {
 	if v.fido2Plugin == nil {
@@ -52,18 +57,18 @@ func (v *Vault) SetupFIDO2HMACSecret(ctx context.Context, hs *auth.FIDO2HMACSecr
 
 // RegisterFIDO2HMACSecret adds vault with a FIDO2 hmac-secret.
 // Requires recent Unlock.
-func (v *Vault) RegisterFIDO2HMACSecret(ctx context.Context, hs *auth.FIDO2HMACSecret, pin string) error {
+func (v *Vault) RegisterFIDO2HMACSecret(ctx context.Context, hs *auth.FIDO2HMACSecret, pin string) (*auth.Auth, error) {
 	if v.mk == nil {
-		return ErrLocked
+		return nil, ErrLocked
 	}
 	if v.fido2Plugin == nil {
-		return errors.Errorf("no fido2 plugin set")
+		return nil, errors.Errorf("no fido2 plugin set")
 	}
-	_, err := v.auth.RegisterFIDO2HMACSecret(ctx, v.fido2Plugin, hs, v.mk, pin)
+	reg, err := v.auth.RegisterFIDO2HMACSecret(ctx, v.fido2Plugin, hs, v.mk, pin)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return reg, nil
 }
 
 // UnlockWithFIDO2HMACSecret opens vault with a FIDO2 hmac-secret.
