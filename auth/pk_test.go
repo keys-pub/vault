@@ -6,16 +6,17 @@ import (
 
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/vault/auth"
+	"github.com/keys-pub/vault/testutil"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPaperKey(t *testing.T) {
-	path := testPath()
+	path := testutil.Path()
 	db, err := auth.NewDB(path)
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(path) }()
 
-	mk := testSeed(0x01)
+	mk := testutil.Seed(0x01)
 	paperKey := keys.RandPhrase()
 
 	reg, err := db.RegisterPaperKey(paperKey, mk)

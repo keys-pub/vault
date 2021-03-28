@@ -15,19 +15,19 @@ func TestKeyring(t *testing.T) {
 	env := testutil.NewEnv(t, nil) // vault.NewLogger(vault.DebugLevel))
 	defer env.CloseFn()
 
-	ck := keys.NewEdX25519KeyFromSeed(testSeed(0xaf))
+	ck := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xaf))
 	vlt, closeFn := testutil.NewTestVaultWithSetup(t, env, "testpassword", ck)
 	defer closeFn()
 	kr := vlt.Keyring()
 
-	alice := api.NewKey(keys.NewEdX25519KeyFromSeed(testSeed(0x01))).WithLabels("alice")
+	alice := api.NewKey(keys.NewEdX25519KeyFromSeed(testutil.Seed(0x01))).WithLabels("alice")
 	err = kr.Set(alice)
 	require.NoError(t, err)
-	bob := api.NewKey(keys.NewEdX25519KeyFromSeed(testSeed(0x02))).WithLabels("bob")
+	bob := api.NewKey(keys.NewEdX25519KeyFromSeed(testutil.Seed(0x02))).WithLabels("bob")
 	bpk := api.NewKey(bob.ID)
 	err = vlt.Keyring().Set(bpk)
 	require.NoError(t, err)
-	charlie := api.NewKey(keys.NewX25519KeyFromSeed(testSeed(0x03))).WithLabels("charlie")
+	charlie := api.NewKey(keys.NewX25519KeyFromSeed(testutil.Seed(0x03))).WithLabels("charlie")
 	err = kr.Set(charlie)
 	require.NoError(t, err)
 

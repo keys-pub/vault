@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/keys-pub/keys"
+	"github.com/keys-pub/vault/sync"
 )
 
 // Change on remote.
@@ -31,12 +32,12 @@ func (v *Vault) Changes(ctx context.Context) ([]*Change, error) {
 	for _, st := range status {
 		logger.Debugf("Status: %s %d", st.ID, st.Index)
 	}
-	indexes, err := pullIndexes(v.db)
+	pullIndexes, err := sync.PullIndexes(v.db)
 	if err != nil {
 		return nil, err
 	}
 
-	pushIndexes, err := pushIndexes(v.db)
+	pushIndexes, err := sync.PushIndexes(v.db)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +45,7 @@ func (v *Vault) Changes(ctx context.Context) ([]*Change, error) {
 	changes := []*Change{}
 	for _, st := range status {
 		kid := st.ID
-		local := indexes[kid]
+		local := pullIndexes[kid]
 		_, push := pushIndexes[kid]
 		if local < st.Index || push {
 			logger.Debugf("Changed %s, %d < %d", kid, local, st.Index)

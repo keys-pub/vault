@@ -6,7 +6,7 @@ import (
 
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/vault"
-	"github.com/keys-pub/vault/client"
+	"github.com/keys-pub/vault/sync"
 	"github.com/keys-pub/vault/testutil"
 	"github.com/stretchr/testify/require"
 )
@@ -18,15 +18,15 @@ func TestChanges(t *testing.T) {
 	defer env.CloseFn()
 
 	ctx := context.TODO()
-	ck := keys.NewEdX25519KeyFromSeed(testSeed(0xaf))
+	ck := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xaf))
 
 	channels := []*keys.EdX25519Key{
-		keys.NewEdX25519KeyFromSeed(testSeed(0xb1)),
-		keys.NewEdX25519KeyFromSeed(testSeed(0xb2)),
-		keys.NewEdX25519KeyFromSeed(testSeed(0xb3)),
-		keys.NewEdX25519KeyFromSeed(testSeed(0xb4)),
+		keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb1)),
+		keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb2)),
+		keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb3)),
+		keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb4)),
 	}
-	alice := keys.NewEdX25519KeyFromSeed(testSeed(0x01))
+	alice := keys.NewEdX25519KeyFromSeed(testutil.Seed(0x01))
 
 	t.Logf("Client #1")
 	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", ck)
@@ -37,7 +37,7 @@ func TestChanges(t *testing.T) {
 		require.NoError(t, err)
 		err = v1.Add(channel.ID(), newMessage("msg1", alice.ID()).marshal())
 		require.NoError(t, err)
-		empty := func(ctx *vault.SyncContext, events []*client.Event) error { return nil }
+		empty := func(ctx *sync.Context, events []*vault.Event) error { return nil }
 		err = v1.Sync(ctx, channel.ID(), empty)
 		require.NoError(t, err)
 	}

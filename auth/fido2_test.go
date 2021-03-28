@@ -10,6 +10,7 @@ import (
 
 	"github.com/keys-pub/keys-ext/auth/fido2"
 	"github.com/keys-pub/vault/auth"
+	"github.com/keys-pub/vault/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,12 +25,12 @@ func TestFIDO2(t *testing.T) {
 	if os.Getenv("TEST_FIDO2") == "" {
 		t.Skip()
 	}
-	path := testPath()
+	path := testutil.Path()
 	db, err := auth.NewDB(path)
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(path) }()
 
-	mk := testSeed(0x01)
+	mk := testutil.Seed(0x01)
 	pin := "12345"
 
 	fido2Path := filepath.Join(gopath(t), "bin", "fido2.so")

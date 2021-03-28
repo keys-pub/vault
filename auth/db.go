@@ -5,6 +5,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
+	"github.com/keys-pub/vault/client"
 	"github.com/pkg/errors"
 
 	// For sqlite3 (we use sqlcipher driver because it would conflict if we used
@@ -14,7 +15,8 @@ import (
 
 // DB for vault.
 type DB struct {
-	db *sqlx.DB
+	db     *sqlx.DB
+	client *client.Client
 }
 
 // NewDB creates an DB for auth.
@@ -25,7 +27,7 @@ func NewDB(path string) (*DB, error) {
 		return nil, errors.Wrapf(err, "failed to open db")
 	}
 
-	db := &DB{sqldb}
+	db := &DB{db: sqldb}
 	if err := db.init(); err != nil {
 		return nil, err
 	}
