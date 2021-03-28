@@ -45,7 +45,7 @@ func NewKeyring(db *sqlx.DB, ck *api.Key, client *Client, clock tsutil.Clock) (*
 	return &Keyring{db, ck, client, clock}, nil
 }
 
-func (k *Keyring) ensureUnlocked() error {
+func (k *Keyring) check() error {
 	if k.db == nil {
 		return ErrLocked
 	}
@@ -58,7 +58,7 @@ func (k *Keyring) ensureUnlocked() error {
 // Save a key.
 // Requires Unlock.
 func (k *Keyring) Set(key *api.Key) error {
-	if err := k.ensureUnlocked(); err != nil {
+	if err := k.check(); err != nil {
 		return err
 	}
 	return TransactDB(k.db, func(tx *sqlx.Tx) error {
@@ -80,7 +80,7 @@ func (k *Keyring) Set(key *api.Key) error {
 // Remove a key.
 // Requires Unlock.
 func (k *Keyring) Remove(kid keys.ID) error {
-	if err := k.ensureUnlocked(); err != nil {
+	if err := k.check(); err != nil {
 		return err
 	}
 
@@ -100,7 +100,7 @@ func (k *Keyring) Remove(kid keys.ID) error {
 
 // Keys in vault.
 func (k *Keyring) Keys() ([]*api.Key, error) {
-	if err := k.ensureUnlocked(); err != nil {
+	if err := k.check(); err != nil {
 		return nil, err
 	}
 	return getKeys(k.db)
@@ -108,7 +108,7 @@ func (k *Keyring) Keys() ([]*api.Key, error) {
 
 // KeysByType in vault.
 func (k *Keyring) KeysByType(typ string) ([]*api.Key, error) {
-	if err := k.ensureUnlocked(); err != nil {
+	if err := k.check(); err != nil {
 		return nil, err
 	}
 	return getKeysByType(k.db, typ)
@@ -116,7 +116,7 @@ func (k *Keyring) KeysByType(typ string) ([]*api.Key, error) {
 
 // Key lookup by id.
 func (k *Keyring) Key(kid keys.ID) (*api.Key, error) {
-	if err := k.ensureUnlocked(); err != nil {
+	if err := k.check(); err != nil {
 		return nil, err
 	}
 	return getKey(k.db, kid)
@@ -125,7 +125,7 @@ func (k *Keyring) Key(kid keys.ID) (*api.Key, error) {
 // Sync db.
 // Returns error if sync is not enabled.
 func (k *Keyring) Sync(ctx context.Context) error {
-	if err := k.ensureUnlocked(); err != nil {
+	if err := k.check(); err != nil {
 		return err
 	}
 
@@ -158,7 +158,7 @@ func (k *Keyring) receive(ctx *SyncContext, events []*Event) error {
 
 // Find looks for local key and if not found, syncs and retries.
 func (k *Keyring) Find(ctx context.Context, kid keys.ID) (*api.Key, error) {
-	if err := k.ensureUnlocked(); err != nil {
+	if err := k.check(); err != nil {
 		return nil, err
 	}
 

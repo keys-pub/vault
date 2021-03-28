@@ -290,6 +290,9 @@ type Event struct {
 
 // Keyring for keys in vault.
 func (v *Vault) Keyring() *Keyring {
+	if v.kr == nil {
+		return &Keyring{}
+	}
 	return v.kr
 }
 

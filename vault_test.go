@@ -1,6 +1,7 @@
 package vault_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -48,6 +49,29 @@ func TestVaultSetup(t *testing.T) {
 	require.Equal(t, vault.Locked, vlt.Status())
 	err = vlt.Unlock(mk)
 	require.NoError(t, err)
+}
+
+func TestVaultLocked(t *testing.T) {
+	var err error
+	env := testutil.NewEnv(t, nil) // vault.NewLogger(vault.DebugLevel))
+	vlt, closeFn := testVault(t, env)
+	defer closeFn()
+
+	mk := keys.Rand32()
+	err = vlt.Setup(mk)
+	require.NoError(t, err)
+
+	// Try accessing keyring while locked
+	err = vlt.Lock()
+	require.NoError(t, err)
+	_, err = vlt.Keyring().Key(keys.RandID("test"))
+	require.EqualError(t, err, "vault is locked")
+	_, err = vlt.Keyring().Keys()
+	require.EqualError(t, err, "vault is locked")
+	_, err = vlt.Keyring().Find(context.TODO(), keys.RandID("test"))
+	require.EqualError(t, err, "vault is locked")
+	err = vlt.Keyring().Sync(context.TODO())
+	require.EqualError(t, err, "vault is locked")
 }
 
 func TestVaultInvalidPassword(t *testing.T) {
