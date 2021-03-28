@@ -76,12 +76,8 @@ func (c *Client) Events(ctx context.Context, key *keys.EdX25519Key, index int64)
 	// Decrypt
 	events := []*Event{}
 	for _, e := range out.Vault {
-		b, err := keys.CryptoBoxSealOpen(e.Data, key.X25519Key())
-		if err != nil {
-			return nil, err
-		}
 		event := &Event{
-			Data:            b,
+			Data:            e.Data,
 			RemoteIndex:     e.Index,
 			RemoteTimestamp: tsutil.ParseMillis(e.Timestamp),
 			VID:             key.ID(),
@@ -103,14 +99,7 @@ func (c *Client) Post(ctx context.Context, key *keys.EdX25519Key, data [][]byte)
 	}
 	path := dstore.Path("vault", key.ID()) + ".msgpack"
 
-	// Encrypt
-	out := [][]byte{}
-	for _, d := range data {
-		b := keys.CryptoBoxSeal(d, key.X25519Key().PublicKey())
-		out = append(out, b)
-	}
-
-	b, err := msgpack.Marshal(out)
+	b, err := msgpack.Marshal(data)
 	if err != nil {
 		return err
 	}

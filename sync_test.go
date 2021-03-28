@@ -145,6 +145,7 @@ func TestSyncMessages(t *testing.T) {
 
 	ctx := context.TODO()
 	ck := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xaf))
+	cipher := sync.NoCipher{}
 
 	channel := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb0))
 	alice := keys.NewEdX25519KeyFromSeed(testutil.Seed(0x01))
@@ -156,9 +157,9 @@ func TestSyncMessages(t *testing.T) {
 	_, err = v1.Register(context.TODO(), channel)
 	require.NoError(t, err)
 
-	err = v1.Add(channel.ID(), newMessage("msg1", alice.ID()).marshal())
+	err = v1.Add(channel, newMessage("msg1", alice.ID()).marshal(), cipher)
 	require.NoError(t, err)
-	err = v1.Add(channel.ID(), newMessage("msg2", alice.ID()).marshal())
+	err = v1.Add(channel, newMessage("msg2", alice.ID()).marshal(), cipher)
 	require.NoError(t, err)
 
 	msgs1 := []*message{}
@@ -187,7 +188,7 @@ func TestSyncMessages(t *testing.T) {
 	err = v2.Sync(ctx, channel.ID(), receiver2)
 	require.NoError(t, err)
 
-	err = v2.Add(channel.ID(), newMessage("msg3", alice.ID()).marshal())
+	err = v2.Add(channel, newMessage("msg3", alice.ID()).marshal(), cipher)
 	require.NoError(t, err)
 
 	err = v2.Sync(ctx, channel.ID(), receiver2)
@@ -208,6 +209,7 @@ func TestSyncAliceBob(t *testing.T) {
 
 	ctx := context.TODO()
 	channel := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb0))
+	cipher := sync.NoCipher{}
 
 	t.Logf("Alice")
 	cka := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xaf))
@@ -218,9 +220,9 @@ func TestSyncAliceBob(t *testing.T) {
 	_, err = v1.Register(context.TODO(), channel)
 	require.NoError(t, err)
 
-	err = v1.Add(channel.ID(), newMessage("hi bob", alice.ID()).marshal())
+	err = v1.Add(channel, newMessage("hi bob", alice.ID()).marshal(), cipher)
 	require.NoError(t, err)
-	err = v1.Add(channel.ID(), newMessage("what's for lunch?", alice.ID()).marshal())
+	err = v1.Add(channel, newMessage("what's for lunch?", alice.ID()).marshal(), cipher)
 	require.NoError(t, err)
 
 	aliceMsgs := []*message{}
@@ -253,7 +255,7 @@ func TestSyncAliceBob(t *testing.T) {
 	err = v2.Sync(ctx, channel.ID(), bobReceiver)
 	require.NoError(t, err)
 
-	err = v2.Add(channel.ID(), newMessage("homemade mcribs", bob.ID()).marshal())
+	err = v2.Add(channel, newMessage("homemade mcribs", bob.ID()).marshal(), cipher)
 	require.NoError(t, err)
 
 	err = v2.Sync(ctx, channel.ID(), bobReceiver)

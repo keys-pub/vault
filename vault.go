@@ -250,21 +250,16 @@ func (v *Vault) Register(ctx context.Context, key *keys.EdX25519Key) (*api.Key, 
 // The `vid` is a vault identifier.
 // You can create a vault using Create.
 // Requires Unlock.
-func (v *Vault) Add(vid keys.ID, b []byte) error {
+func (v *Vault) Add(key *keys.EdX25519Key, b []byte, cipher sync.Cipher) error {
 	if v.db == nil {
 		return ErrLocked
 	}
-	key, err := v.Keyring().Key(vid)
-	if err != nil {
-		return err
-	}
-	if key == nil {
-		return errors.Wrapf(keys.NewErrNotFound((vid.String())), "failed to add")
-	}
-	if err := sync.Add(v.db, vid, b); err != nil {
-		return errors.Wrapf(err, "failed to add")
-	}
-	return nil
+	return sync.Transact(v.db, func(tx *sqlx.Tx) error {
+		if err := sync.AddTx(tx, key, b, cipher); err != nil {
+			return errors.Wrapf(err, "failed to add")
+		}
+		return nil
+	})
 }
 
 // Keyring for keys in vault.

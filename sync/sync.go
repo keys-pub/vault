@@ -82,6 +82,7 @@ func (s *Syncer) Push(ctx context.Context, key *api.Key) error {
 				logger.Debugf("Max data, splitting push")
 				break
 			}
+
 			out = append(out, p.Data)
 			to = p.Index
 			total += len(p.Data)
@@ -134,6 +135,7 @@ func (s *Syncer) pullNext(ctx context.Context, key *api.Key, index int64) (bool,
 	if events == nil {
 		return false, nil
 	}
+
 	logger.Debugf("Saving (%d)...", len(events.Events))
 	if err := s.applyPull(key.ID, events); err != nil {
 		return false, errors.Wrapf(err, "failed to apply pull")

@@ -95,7 +95,7 @@ func (d *DB) Add(auth *Auth) error {
 		if err != nil {
 			return err
 		}
-		if err := sync.AddTx(tx, d.ck.ID, b); err != nil {
+		if err := sync.AddTx(tx, d.ck.AsEdX25519(), b, sync.CryptoBoxSealCipher{}); err != nil {
 			return err
 		}
 

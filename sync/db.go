@@ -56,14 +56,13 @@ func Transact(db *sqlx.DB, txFn func(*sqlx.Tx) error) (err error) {
 	return err
 }
 
-func Add(db *sqlx.DB, vid keys.ID, b []byte) error {
-	fn := func(tx *sqlx.Tx) error { return AddTx(tx, vid, b) }
-	return Transact(db, fn)
-}
-
-func AddTx(tx *sqlx.Tx, vid keys.ID, b []byte) error {
-	logger.Debugf("Adding to push %s (%s)", vid)
-	if _, err := tx.Exec("INSERT INTO push (vid, data) VALUES ($1, $2)", vid, b); err != nil {
+func AddTx(tx *sqlx.Tx, vk *keys.EdX25519Key, b []byte, cipher Cipher) error {
+	logger.Debugf("Adding to push %s (%s)", vk.ID())
+	encrypted, err := cipher.Encrypt(b, vk)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec("INSERT INTO push (vid, data) VALUES ($1, $2)", vk.ID(), encrypted); err != nil {
 		return err
 	}
 	return nil

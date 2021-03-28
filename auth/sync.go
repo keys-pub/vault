@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 
+	"github.com/keys-pub/keys"
 	"github.com/keys-pub/vault/client"
 	"github.com/keys-pub/vault/sync"
 	"github.com/vmihailenco/msgpack/v4"
@@ -20,8 +21,12 @@ func (d *DB) Sync(ctx context.Context, client *client.Client) error {
 
 func (d *DB) receive(ctx *sync.Context, events []*client.Event) error {
 	for _, event := range events {
+		b, err := keys.CryptoBoxSealOpen(event.Data, d.ck.AsX25519())
+		if err != nil {
+			return err
+		}
 		var auth Auth
-		if err := msgpack.Unmarshal(event.Data, &auth); err != nil {
+		if err := msgpack.Unmarshal(b, &auth); err != nil {
 			return err
 		}
 		if auth.Deleted {
