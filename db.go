@@ -89,7 +89,7 @@ func add(db *sqlx.DB, vid keys.ID, b []byte) error {
 
 // Add to vault.
 func Add(tx *sqlx.Tx, vid keys.ID, b []byte) error {
-	logger.Debugf("Adding to push %s", vid)
+	logger.Debugf("Adding to push %s (%s)", vid)
 	if _, err := tx.Exec("INSERT INTO push (vid, data) VALUES ($1, $2)", vid, b); err != nil {
 		return err
 	}

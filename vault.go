@@ -63,12 +63,14 @@ func New(path string, auth *auth.DB, opt ...Option) (*Vault, error) {
 
 	clock := tsutil.NewClock()
 
-	return &Vault{
+	v := &Vault{
 		path:   path,
 		client: client,
 		clock:  clock,
 		auth:   auth,
-	}, nil
+	}
+	v.kr = NewKeyring(v)
+	return v, nil
 }
 
 // Auth returns auth db.
@@ -139,10 +141,7 @@ func (v *Vault) Setup(mk *[32]byte, opt ...SetupOption) error {
 		return kerr
 	}
 
-	if err := v.unlocked(mk, ck, db); err != nil {
-		onErrFn()
-		return kerr
-	}
+	v.unlocked(mk, ck, db)
 
 	logger.Debugf("Setup complete")
 	return nil
@@ -184,32 +183,22 @@ func (v *Vault) Unlock(mk *[32]byte) error {
 		return errors.Errorf("missing client key")
 	}
 
-	if err := v.unlocked(mk, ck, db); err != nil {
-		onErrFn()
-		return err
-	}
+	v.unlocked(mk, ck, db)
 
 	logger.Debugf("Unlocked")
 	return nil
 }
 
-func (v *Vault) unlocked(mk *[32]byte, ck *api.Key, db *sqlx.DB) error {
-	kr, err := NewKeyring(db, ck, v.client, v.clock)
-	if err != nil {
-		return err
-	}
+func (v *Vault) unlocked(mk *[32]byte, ck *api.Key, db *sqlx.DB) {
 	v.mk = mk
 	v.ck = ck
 	v.db = db
-	v.kr = kr
-	return nil
 }
 
 func (v *Vault) locked() {
 	v.db = nil
 	v.mk = nil
 	v.ck = nil
-	v.kr = nil
 }
 
 // Lock vault.
@@ -279,17 +268,14 @@ func (v *Vault) Add(vid keys.ID, b []byte) error {
 
 // Event pulled from remote.
 type Event struct {
+	VID             keys.ID   `db:"vid"`
 	Data            []byte    `db:"data"`
 	RemoteIndex     int64     `db:"ridx"`
 	RemoteTimestamp time.Time `db:"rts"`
-	VID             keys.ID   `db:"vid"`
 }
 
 // Keyring for keys in vault.
 func (v *Vault) Keyring() *Keyring {
-	if v.kr == nil {
-		return &Keyring{}
-	}
 	return v.kr
 }
 
@@ -303,8 +289,8 @@ func (v *Vault) DB() *sqlx.DB {
 }
 
 // ClientKey is the vault client key.
-func (v *Vault) ClientKey() (*api.Key, error) {
-	return clientKey(v.db)
+func (v *Vault) ClientKey() *api.Key {
+	return v.ck
 }
 
 // Client is the vault client.

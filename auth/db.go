@@ -14,7 +14,7 @@ import (
 
 // DB for vault.
 type DB struct {
-	*sqlx.DB
+	db *sqlx.DB
 }
 
 // NewDB creates an DB for auth.
@@ -25,8 +25,7 @@ func NewDB(path string) (*DB, error) {
 		return nil, errors.Wrapf(err, "failed to open db")
 	}
 
-	db := &DB{}
-	db.DB = sqldb
+	db := &DB{sqldb}
 	if err := db.init(); err != nil {
 		return nil, err
 	}
@@ -59,17 +58,22 @@ func (d *DB) init() error {
 		);`,
 	}
 	for _, stmt := range stmts {
-		if _, err := d.Exec(stmt); err != nil {
+		if _, err := d.db.Exec(stmt); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (d *DB) add(auth *Auth) error {
+func (d *DB) Close() error {
+	return d.db.Close()
+}
+
+// Add auth method.
+func (d *DB) Add(auth *Auth) error {
 	sql := `INSERT INTO auth (id, ek, type, createdAt, salt, aaguid, nopin) 
 			VALUES (:id, :ek, :type, :createdAt, :salt, :aaguid, :nopin)`
-	if _, err := d.NamedExec(sql, auth); err != nil {
+	if _, err := d.db.NamedExec(sql, auth); err != nil {
 		return err
 	}
 	return nil
@@ -78,7 +82,7 @@ func (d *DB) add(auth *Auth) error {
 // List auth.
 func (d *DB) List() ([]*Auth, error) {
 	var auths []*Auth
-	if err := d.Select(&auths, "SELECT * FROM auth"); err != nil {
+	if err := d.db.Select(&auths, "SELECT * FROM auth"); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -93,7 +97,7 @@ func (d *DB) List() ([]*Auth, error) {
 // ListByType lists auth by type.
 func (d *DB) ListByType(typ Type) ([]*Auth, error) {
 	var auths []*Auth
-	if err := d.Select(&auths, "SELECT * FROM auth WHERE type = $1", typ); err != nil {
+	if err := d.db.Select(&auths, "SELECT * FROM auth WHERE type = $1", typ); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}

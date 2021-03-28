@@ -105,7 +105,7 @@ func (d *DB) RegisterFIDO2HMACSecret(ctx context.Context, plugin fido2.FIDO2Serv
 		return nil, errors.Errorf("invalid hmac-secret key length")
 	}
 	auth.EncryptedKey = secretBoxSeal(mk[:], key)
-	if err := d.add(auth); err != nil {
+	if err := d.Add(auth); err != nil {
 		return nil, err
 	}
 	return auth, nil

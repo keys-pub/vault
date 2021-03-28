@@ -24,7 +24,7 @@ func TestSyncKeyring(t *testing.T) {
 	ck := keys.NewEdX25519KeyFromSeed(testSeed(0xaf))
 
 	t.Logf("Client #1")
-	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
+	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", ck)
 	defer closeFn1()
 
 	// Add alice key
@@ -37,7 +37,7 @@ func TestSyncKeyring(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Client #2")
-	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
+	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, "testpassword2", ck)
 	defer closeFn2()
 
 	err = v2.Keyring().Sync(ctx)
@@ -92,7 +92,7 @@ func TestSyncCreateFind(t *testing.T) {
 	channel := keys.NewEdX25519KeyFromSeed(testSeed(0xb0))
 
 	t.Logf("Client #1")
-	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
+	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", ck)
 	defer closeFn1()
 
 	err = v1.Register(context.TODO(), channel)
@@ -103,7 +103,7 @@ func TestSyncCreateFind(t *testing.T) {
 	require.Equal(t, out.ID, channel.ID())
 
 	t.Logf("Client #2")
-	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
+	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, "testpassword2", ck)
 	defer closeFn2()
 
 	err = v2.Keyring().Sync(context.TODO())
@@ -111,6 +111,7 @@ func TestSyncCreateFind(t *testing.T) {
 
 	out2, err := v2.Keyring().Find(context.TODO(), channel.ID())
 	require.NoError(t, err)
+	require.NotNil(t, out2)
 	require.Equal(t, out2.ID, channel.ID())
 }
 
@@ -149,7 +150,7 @@ func TestSyncMessages(t *testing.T) {
 	alice := keys.NewEdX25519KeyFromSeed(testSeed(0x01))
 
 	t.Logf("Client #1")
-	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
+	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", ck)
 	defer closeFn1()
 
 	err = v1.Register(context.TODO(), channel)
@@ -172,7 +173,7 @@ func TestSyncMessages(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Client #2")
-	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
+	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, "testpassword2", ck)
 	defer closeFn2()
 
 	msgs2 := []*message{}
@@ -211,7 +212,7 @@ func TestSyncAliceBob(t *testing.T) {
 	t.Logf("Alice")
 	cka := keys.NewEdX25519KeyFromSeed(testSeed(0xaf))
 	alice := keys.NewEdX25519KeyFromSeed(testSeed(0x01))
-	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), cka)
+	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", cka)
 	defer closeFn1()
 
 	err = v1.Register(context.TODO(), channel)
@@ -235,7 +236,7 @@ func TestSyncAliceBob(t *testing.T) {
 	t.Logf("Bob")
 	ckb := keys.NewEdX25519KeyFromSeed(testSeed(0xbf))
 	bob := keys.NewEdX25519KeyFromSeed(testSeed(0x02))
-	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ckb)
+	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, "testpassword2", ckb)
 	defer closeFn2()
 
 	err = v2.Register(ctx, channel)

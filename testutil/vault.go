@@ -37,9 +37,9 @@ func NewTestVault(t *testing.T, env *Env) (*vault.Vault, func()) {
 	return vlt, closeFn
 }
 
-func NewTestVaultWithSetup(t *testing.T, env *Env, mk *[32]byte, key *keys.EdX25519Key) (*vault.Vault, func()) {
+func NewTestVaultWithSetup(t *testing.T, env *Env, password string, key *keys.EdX25519Key) (*vault.Vault, func()) {
 	vlt, closeFn := NewTestVault(t, env)
-	err := vlt.Setup(mk, vault.WithClientKey(key))
+	mk, err := vlt.SetupPassword(password, vault.WithClientKey(key))
 	require.NoError(t, err)
 	err = vlt.Unlock(mk)
 	require.NoError(t, err)

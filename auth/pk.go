@@ -28,15 +28,15 @@ func (d *DB) RegisterPaperKey(paperKey string, mk *[32]byte) (*Auth, error) {
 		CreatedAt:    time.Now(),
 	}
 
-	if err := d.add(auth); err != nil {
+	if err := d.Add(auth); err != nil {
 		return nil, err
 	}
 
 	return auth, nil
 }
 
-// AuthPaperKey authenticates using a paper key.
-func (d *DB) AuthPaperKey(paperKey string) (*Auth, *[32]byte, error) {
+// PaperKey authenticates using a paper key.
+func (d *DB) PaperKey(paperKey string) (*Auth, *[32]byte, error) {
 	auths, err := d.ListByType(PaperKeyType)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to auth")

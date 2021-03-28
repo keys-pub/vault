@@ -16,7 +16,7 @@ func TestKeyring(t *testing.T) {
 	defer env.CloseFn()
 
 	ck := keys.NewEdX25519KeyFromSeed(testSeed(0xaf))
-	vlt, closeFn := testutil.NewTestVaultWithSetup(t, env, keys.Rand32(), ck)
+	vlt, closeFn := testutil.NewTestVaultWithSetup(t, env, "testpassword", ck)
 	defer closeFn()
 	kr := vlt.Keyring()
 

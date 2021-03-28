@@ -29,7 +29,7 @@ func (d *DB) RegisterPassword(password string, mk *[32]byte) (*Auth, error) {
 		CreatedAt:    time.Now(),
 	}
 
-	if err := d.add(auth); err != nil {
+	if err := d.Add(auth); err != nil {
 		return nil, err
 	}
 

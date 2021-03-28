@@ -25,14 +25,14 @@ func TestPaperKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(auths))
 
-	out, mko, err := db.AuthPaperKey(paperKey)
+	out, mko, err := db.PaperKey(paperKey)
 	require.NoError(t, err)
 	require.Equal(t, mk, mko)
 	require.Equal(t, out.ID, reg.ID)
 
-	_, _, err = db.AuthPaperKey(keys.RandPhrase())
+	_, _, err = db.PaperKey(keys.RandPhrase())
 	require.EqualError(t, err, "invalid auth")
 
-	_, _, err = db.AuthPaperKey("")
+	_, _, err = db.PaperKey("")
 	require.EqualError(t, err, "invalid auth")
 }
