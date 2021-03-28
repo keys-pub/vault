@@ -97,17 +97,6 @@ func setPullTx(tx *sqlx.Tx, events []*client.Event) error {
 	return nil
 }
 
-// func listPull(db *sqlx.DB, from int64) ([]*Event, error) {
-// 	var pulls []*Event
-// 	if err := db.Select(&pulls, "SELECT * FROM pull WHERE ridx > $1 ORDER BY ridx", from); err != nil {
-// 		if errors.Is(err, sql.ErrNoRows) {
-// 			return nil, nil
-// 		}
-// 		return nil, err
-// 	}
-// 	return pulls, nil
-// }
-
 func pullIndex(db *sqlx.DB, vid keys.ID) (int64, error) {
 	var pull struct {
 		Index sql.NullInt64 `db:"ridx"`
