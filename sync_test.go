@@ -8,7 +8,7 @@ import (
 	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/keys/encoding"
 	"github.com/keys-pub/vault"
-	"github.com/keys-pub/vault/sync"
+	"github.com/keys-pub/vault/syncer"
 	"github.com/keys-pub/vault/testutil"
 	"github.com/stretchr/testify/require"
 	"github.com/vmihailenco/msgpack/v4"
@@ -72,9 +72,11 @@ func TestSyncKeyring(t *testing.T) {
 	t.Logf("Client #2")
 	err = v2.Keyring().Sync(context.TODO())
 	require.NoError(t, err)
-	out3, err := v1.Keyring().Key(alice.ID())
+	out3, err := v1.Keyring().Get(alice.ID())
 	require.NoError(t, err)
 	require.Nil(t, out3)
+	_, err = v1.Keyring().Key(alice.ID())
+	require.EqualError(t, err, "kex132yw8ht5p8cetl2jmvknewjawt9xwzdlrk2pyxlnwjyqrdq0dawqqph077 not found")
 
 	// Sync again
 	err = v2.Keyring().Sync(context.TODO())
@@ -145,7 +147,7 @@ func TestSyncMessages(t *testing.T) {
 
 	ctx := context.TODO()
 	ck := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xaf))
-	cipher := sync.NoCipher{}
+	cipher := syncer.NoCipher{}
 
 	channel := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb0))
 	alice := keys.NewEdX25519KeyFromSeed(testutil.Seed(0x01))
@@ -163,7 +165,7 @@ func TestSyncMessages(t *testing.T) {
 	require.NoError(t, err)
 
 	msgs1 := []*message{}
-	receiver1 := func(ctx *sync.Context, events []*vault.Event) error {
+	receiver1 := func(ctx *syncer.Context, events []*vault.Event) error {
 		for _, event := range events {
 			msgs1 = append(msgs1, unmarshalMessage(event.Data))
 		}
@@ -178,7 +180,7 @@ func TestSyncMessages(t *testing.T) {
 	defer closeFn2()
 
 	msgs2 := []*message{}
-	receiver2 := func(ctx *sync.Context, events []*vault.Event) error {
+	receiver2 := func(ctx *syncer.Context, events []*vault.Event) error {
 		for _, event := range events {
 			msgs2 = append(msgs2, unmarshalMessage(event.Data))
 		}
@@ -209,7 +211,7 @@ func TestSyncAliceBob(t *testing.T) {
 
 	ctx := context.TODO()
 	channel := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb0))
-	cipher := sync.NoCipher{}
+	cipher := syncer.NoCipher{}
 
 	t.Logf("Alice")
 	cka := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xaf))
@@ -226,7 +228,7 @@ func TestSyncAliceBob(t *testing.T) {
 	require.NoError(t, err)
 
 	aliceMsgs := []*message{}
-	aliceReceiver := func(ctx *sync.Context, events []*vault.Event) error {
+	aliceReceiver := func(ctx *syncer.Context, events []*vault.Event) error {
 		for _, event := range events {
 			aliceMsgs = append(aliceMsgs, unmarshalMessage(event.Data))
 		}
@@ -245,7 +247,7 @@ func TestSyncAliceBob(t *testing.T) {
 	require.NoError(t, err)
 
 	bobMsgs := []*message{}
-	bobReceiver := func(ctx *sync.Context, events []*vault.Event) error {
+	bobReceiver := func(ctx *syncer.Context, events []*vault.Event) error {
 		for _, event := range events {
 			bobMsgs = append(bobMsgs, unmarshalMessage(event.Data))
 		}

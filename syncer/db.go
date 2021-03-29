@@ -1,4 +1,4 @@
-package sync
+package syncer
 
 import (
 	"database/sql"

@@ -3,12 +3,13 @@ package vault
 import (
 	"context"
 	"database/sql"
+	"sync"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/vault/client"
-	"github.com/keys-pub/vault/sync"
+	"github.com/keys-pub/vault/syncer"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v4"
 )
@@ -17,6 +18,7 @@ import (
 type Keyring struct {
 	vault *Vault
 	init  bool
+	smtx  sync.Mutex
 }
 
 // NewKeyring creates a keyring.
@@ -70,13 +72,13 @@ func (k *Keyring) Set(key *api.Key) error {
 		return err
 	}
 	ck := k.vault.ClientKey()
-	return sync.Transact(k.vault.DB(), func(tx *sqlx.Tx) error {
+	return syncer.Transact(k.vault.DB(), func(tx *sqlx.Tx) error {
 		logger.Debugf("Saving key %s", key.ID)
 		b, err := msgpack.Marshal(key)
 		if err != nil {
 			return err
 		}
-		if err := sync.AddTx(tx, ck.AsEdX25519(), b, sync.CryptoBoxSealCipher{}); err != nil {
+		if err := syncer.AddTx(tx, ck.AsEdX25519(), b, syncer.CryptoBoxSealCipher{}); err != nil {
 			return err
 		}
 		if err := updateKeyTx(tx, key); err != nil {
@@ -93,14 +95,14 @@ func (k *Keyring) Remove(kid keys.ID) error {
 		return err
 	}
 	ck := k.vault.ClientKey()
-	return sync.Transact(k.vault.DB(), func(tx *sqlx.Tx) error {
+	return syncer.Transact(k.vault.DB(), func(tx *sqlx.Tx) error {
 		key := api.NewKey(kid)
 		key.Deleted = true
 		b, err := msgpack.Marshal(key)
 		if err != nil {
 			return err
 		}
-		if err := sync.AddTx(tx, ck.AsEdX25519(), b, sync.CryptoBoxSealCipher{}); err != nil {
+		if err := syncer.AddTx(tx, ck.AsEdX25519(), b, syncer.CryptoBoxSealCipher{}); err != nil {
 			return err
 		}
 		return deleteKeyTx(tx, kid)
@@ -131,29 +133,50 @@ func (k *Keyring) KeysWithLabel(typ string) ([]*api.Key, error) {
 	return getKeysByLabel(k.vault.DB(), typ)
 }
 
-// Key lookup by id.
-func (k *Keyring) Key(kid keys.ID) (*api.Key, error) {
+// Get key by id.
+// Returns nil if not found.
+func (k *Keyring) Get(kid keys.ID) (*api.Key, error) {
 	if err := k.check(); err != nil {
 		return nil, err
 	}
 	return getKey(k.vault.DB(), kid)
 }
 
+// Key by id.
+// If not found, returns keys.ErrNotFound.
+// You can use Get instead.
+func (k *Keyring) Key(kid keys.ID) (*api.Key, error) {
+	if err := k.check(); err != nil {
+		return nil, err
+	}
+	key, err := getKey(k.vault.DB(), kid)
+	if err != nil {
+		return nil, err
+	}
+	if key == nil {
+		return nil, keys.NewErrNotFound(kid.String())
+	}
+	return key, nil
+}
+
 // Sync db.
 // Returns error if sync is not enabled.
 func (k *Keyring) Sync(ctx context.Context) error {
+	k.smtx.Lock()
+	defer k.smtx.Unlock()
+
 	if err := k.check(); err != nil {
 		return err
 	}
 
-	s := sync.NewSyncer(k.vault.DB(), k.vault.Client(), k.receive)
+	s := syncer.New(k.vault.DB(), k.vault.Client(), k.receive)
 	if err := s.Sync(ctx, k.vault.ClientKey()); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (k *Keyring) receive(ctx *sync.Context, events []*Event) error {
+func (k *Keyring) receive(ctx *syncer.Context, events []*Event) error {
 	ck := k.vault.ClientKey()
 	for _, event := range events {
 		b, err := keys.CryptoBoxSealOpen(event.Data, ck.AsX25519())
@@ -193,6 +216,15 @@ func (k *Keyring) Find(ctx context.Context, kid keys.ID) (*api.Key, error) {
 		}
 	}
 	return getKey(k.vault.DB(), kid)
+}
+
+// Tokens can be used to listen for realtime updates.
+func (k *Keyring) Tokens() ([]*client.Token, error) {
+	if err := k.check(); err != nil {
+		return nil, err
+	}
+
+	return getTokens(k.vault.DB())
 }
 
 func updateKeyTx(tx *sqlx.Tx, key *api.Key) error {

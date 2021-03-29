@@ -1,4 +1,4 @@
-package sync
+package syncer
 
 import (
 	"github.com/keys-pub/keys"

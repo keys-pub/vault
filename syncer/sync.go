@@ -1,7 +1,8 @@
-package sync
+package syncer
 
 import (
 	"context"
+	"sync"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
@@ -15,10 +16,11 @@ type Syncer struct {
 	db       *sqlx.DB
 	client   *client.Client
 	receiver Receiver
+	smtx     sync.Mutex
 }
 
-// NewSyncer creates a Syncer.
-func NewSyncer(db *sqlx.DB, client *client.Client, receiver Receiver) *Syncer {
+// New creates a Syncer.
+func New(db *sqlx.DB, client *client.Client, receiver Receiver) *Syncer {
 	return &Syncer{
 		db:       db,
 		client:   client,
@@ -28,6 +30,8 @@ func NewSyncer(db *sqlx.DB, client *client.Client, receiver Receiver) *Syncer {
 
 func (s *Syncer) Sync(ctx context.Context, key *api.Key) error {
 	logger.Infof("Syncing %s...", key.ID)
+	s.smtx.Lock()
+	defer s.smtx.Unlock()
 
 	// What happens on connection failures, context cancellation?
 	//

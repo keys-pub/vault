@@ -2,11 +2,12 @@ package auth
 
 import (
 	"database/sql"
+	"sync"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys/api"
-	"github.com/keys-pub/vault/sync"
+	"github.com/keys-pub/vault/syncer"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v4"
 
@@ -17,8 +18,9 @@ import (
 
 // DB for vault.
 type DB struct {
-	db *sqlx.DB
-	ck *api.Key
+	db   *sqlx.DB
+	ck   *api.Key
+	smtx sync.Mutex
 }
 
 // NewDB creates an DB for auth.
@@ -37,7 +39,7 @@ func NewDB(path string, opt ...Option) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DB{db, ck}, nil
+	return &DB{db: db, ck: ck}, nil
 }
 
 func (d *DB) unlock(auth *Auth, key *[32]byte) *[32]byte {
@@ -74,7 +76,7 @@ func initTables(db *sqlx.DB) error {
 			return err
 		}
 	}
-	if err := sync.InitTables(db); err != nil {
+	if err := syncer.InitTables(db); err != nil {
 		return err
 	}
 	return nil
@@ -86,7 +88,7 @@ func (d *DB) Close() error {
 
 // Add auth method.
 func (d *DB) Add(auth *Auth) error {
-	return sync.Transact(d.db, func(tx *sqlx.Tx) error {
+	return syncer.Transact(d.db, func(tx *sqlx.Tx) error {
 		if err := addTx(tx, auth); err != nil {
 			return err
 		}
@@ -95,7 +97,7 @@ func (d *DB) Add(auth *Auth) error {
 		if err != nil {
 			return err
 		}
-		if err := sync.AddTx(tx, d.ck.AsEdX25519(), b, sync.CryptoBoxSealCipher{}); err != nil {
+		if err := syncer.AddTx(tx, d.ck.AsEdX25519(), b, syncer.CryptoBoxSealCipher{}); err != nil {
 			return err
 		}
 

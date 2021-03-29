@@ -5,21 +5,23 @@ import (
 
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/vault/client"
-	"github.com/keys-pub/vault/sync"
+	"github.com/keys-pub/vault/syncer"
 	"github.com/vmihailenco/msgpack/v4"
 )
 
 // Sync db.
 // Returns error if sync is not enabled.
 func (d *DB) Sync(ctx context.Context, client *client.Client) error {
-	s := sync.NewSyncer(d.db, client, d.receive)
+	d.smtx.Lock()
+	defer d.smtx.Unlock()
+	s := syncer.New(d.db, client, d.receive)
 	if err := s.Sync(ctx, d.ck); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *DB) receive(ctx *sync.Context, events []*client.Event) error {
+func (d *DB) receive(ctx *syncer.Context, events []*client.Event) error {
 	for _, event := range events {
 		b, err := keys.CryptoBoxSealOpen(event.Data, d.ck.AsX25519())
 		if err != nil {

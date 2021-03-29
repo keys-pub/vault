@@ -1,4 +1,4 @@
-package sync
+package syncer
 
 import (
 	pkglog "log"

@@ -31,18 +31,6 @@ func (c Config) SetString(k string, v string) error {
 	return setConfig(c.db, k, v)
 }
 
-func (c Config) KID(k string) (keys.ID, error) {
-	s, err := c.String(k)
-	if err != nil {
-		return "", err
-	}
-	kid, err := keys.ParseID(s)
-	if err != nil {
-		return "", err
-	}
-	return kid, nil
-}
-
 func (c Config) Bytes(k string) ([]byte, error) {
 	if c.db == nil {
 		return nil, ErrLocked
@@ -62,6 +50,28 @@ func (c Config) Set(k string, v string) error {
 		return ErrLocked
 	}
 	return setConfig(c.db, k, v)
+}
+
+func (c Config) KID(k string) (keys.ID, error) {
+	s, err := c.String(k)
+	if err != nil {
+		return "", err
+	}
+	if s == "" {
+		return "", nil
+	}
+	kid, err := keys.ParseID(s)
+	if err != nil {
+		return "", err
+	}
+	return kid, nil
+}
+
+func (c Config) SetKID(k string, v keys.ID) error {
+	if c.db == nil {
+		return ErrLocked
+	}
+	return setConfig(c.db, k, string(v))
 }
 
 func setConfig(db *sqlx.DB, key string, value string) error {

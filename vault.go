@@ -11,7 +11,7 @@ import (
 	"github.com/keys-pub/keys/tsutil"
 	"github.com/keys-pub/vault/auth"
 	"github.com/keys-pub/vault/client"
-	"github.com/keys-pub/vault/sync"
+	"github.com/keys-pub/vault/syncer"
 	"github.com/vmihailenco/msgpack/v4"
 
 	"github.com/pkg/errors"
@@ -250,12 +250,12 @@ func (v *Vault) Register(ctx context.Context, key *keys.EdX25519Key) (*api.Key, 
 // The `vid` is a vault identifier.
 // You can create a vault using Create.
 // Requires Unlock.
-func (v *Vault) Add(key *keys.EdX25519Key, b []byte, cipher sync.Cipher) error {
+func (v *Vault) Add(key *keys.EdX25519Key, b []byte, cipher syncer.Cipher) error {
 	if v.db == nil {
 		return ErrLocked
 	}
-	return sync.Transact(v.db, func(tx *sqlx.Tx) error {
-		if err := sync.AddTx(tx, key, b, cipher); err != nil {
+	return syncer.Transact(v.db, func(tx *sqlx.Tx) error {
+		if err := syncer.AddTx(tx, key, b, cipher); err != nil {
 			return errors.Wrapf(err, "failed to add")
 		}
 		return nil

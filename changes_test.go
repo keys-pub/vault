@@ -6,7 +6,7 @@ import (
 
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/vault"
-	"github.com/keys-pub/vault/sync"
+	"github.com/keys-pub/vault/syncer"
 	"github.com/keys-pub/vault/testutil"
 	"github.com/stretchr/testify/require"
 )
@@ -35,9 +35,9 @@ func TestChanges(t *testing.T) {
 	for _, channel := range channels {
 		_, err = v1.Register(context.TODO(), channel)
 		require.NoError(t, err)
-		err = v1.Add(channel, newMessage("msg1", alice.ID()).marshal(), sync.CryptoBoxSealCipher{})
+		err = v1.Add(channel, newMessage("msg1", alice.ID()).marshal(), syncer.CryptoBoxSealCipher{})
 		require.NoError(t, err)
-		empty := func(ctx *sync.Context, events []*vault.Event) error { return nil }
+		empty := func(ctx *syncer.Context, events []*vault.Event) error { return nil }
 		err = v1.Sync(ctx, channel.ID(), empty)
 		require.NoError(t, err)
 	}

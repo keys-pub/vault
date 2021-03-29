@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/keys-pub/vault/sync"
+	"github.com/keys-pub/vault/syncer"
 	"github.com/pkg/errors"
 
 	// For sqlite3 (sqlcipher driver)
@@ -38,7 +38,7 @@ func initTables(db *sqlx.DB) error {
 			return err
 		}
 	}
-	if err := sync.InitTables(db); err != nil {
+	if err := syncer.InitTables(db); err != nil {
 		return err
 	}
 	return nil
