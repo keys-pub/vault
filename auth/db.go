@@ -2,25 +2,29 @@ package auth
 
 import (
 	"database/sql"
-	"sync"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/keys-pub/keys"
-	"github.com/keys-pub/keys/api"
+	kapi "github.com/keys-pub/keys/api"
+	"github.com/keys-pub/vault/auth/api"
 	"github.com/keys-pub/vault/syncer"
 	"github.com/pkg/errors"
-	"github.com/vmihailenco/msgpack/v4"
 
 	// For sqlite3 (we use sqlcipher driver because it would conflict with vault
 	// if we used regular sqlite driver).
 	_ "github.com/mutecomm/go-sqlcipher/v4"
 )
 
+// ErrInvalidAuth if auth is invalid.
+var ErrInvalidAuth = errors.New("invalid auth")
+
+type Auth = api.Auth
+type Type = api.Type
+
 // DB for vault.
 type DB struct {
-	db   *sqlx.DB
-	ck   *api.Key
-	smtx sync.Mutex
+	db *sqlx.DB
+	ck *kapi.Key
 }
 
 // NewDB creates an DB for auth.
@@ -76,9 +80,6 @@ func initTables(db *sqlx.DB) error {
 			return err
 		}
 	}
-	if err := syncer.InitTables(db); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -86,26 +87,27 @@ func (d *DB) Close() error {
 	return d.db.Close()
 }
 
-// Add auth method.
-func (d *DB) Add(auth *Auth) error {
+// Set adds or updates auth method.
+func (d *DB) Set(auth *Auth) error {
 	return syncer.Transact(d.db, func(tx *sqlx.Tx) error {
-		if err := addTx(tx, auth); err != nil {
+		if err := setTx(tx, auth); err != nil {
 			return err
 		}
-
-		b, err := msgpack.Marshal(auth)
-		if err != nil {
-			return err
-		}
-		if err := syncer.AddTx(tx, d.ck.AsEdX25519(), b, syncer.CryptoBoxSealCipher{}); err != nil {
-			return err
-		}
-
 		return nil
 	})
 }
 
-func addTx(tx *sqlx.Tx, auth *Auth) error {
+// Delete auth method.
+func (d *DB) Delete(id string) error {
+	return syncer.Transact(d.db, func(tx *sqlx.Tx) error {
+		if err := deleteTx(tx, id); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func setTx(tx *sqlx.Tx, auth *Auth) error {
 	sql := `INSERT OR REPLACE INTO auth (id, ek, type, createdAt, salt, aaguid, nopin) 
 			VALUES (:id, :ek, :type, :createdAt, :salt, :aaguid, :nopin)`
 	if _, err := tx.NamedExec(sql, auth); err != nil {

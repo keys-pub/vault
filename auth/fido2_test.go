@@ -10,6 +10,7 @@ import (
 
 	"github.com/keys-pub/keys-ext/auth/fido2"
 	"github.com/keys-pub/vault/auth"
+	"github.com/keys-pub/vault/auth/api"
 	"github.com/keys-pub/vault/testutil"
 	"github.com/stretchr/testify/require"
 )
@@ -47,7 +48,7 @@ func TestFIDO2(t *testing.T) {
 	reg, err := db.RegisterFIDO2HMACSecret(context.TODO(), fido2Plugin, hs, mk, pin)
 	require.NoError(t, err)
 
-	auths, err := db.ListByType(auth.FIDO2HMACSecretType)
+	auths, err := db.ListByType(api.FIDO2HMACSecretType)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(auths))
 

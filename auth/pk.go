@@ -5,6 +5,7 @@ import (
 
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys/encoding"
+	"github.com/keys-pub/vault/auth/api"
 	"github.com/pkg/errors"
 )
 
@@ -23,12 +24,12 @@ func (d *DB) RegisterPaperKey(paperKey string, mk *[32]byte) (*Auth, error) {
 	ek := secretBoxSeal(mk[:], key)
 	auth := &Auth{
 		ID:           id,
-		Type:         PaperKeyType,
+		Type:         api.PaperKeyType,
 		EncryptedKey: ek,
 		CreatedAt:    time.Now(),
 	}
 
-	if err := d.Add(auth); err != nil {
+	if err := d.Set(auth); err != nil {
 		return nil, err
 	}
 
@@ -37,7 +38,7 @@ func (d *DB) RegisterPaperKey(paperKey string, mk *[32]byte) (*Auth, error) {
 
 // PaperKey authenticates using a paper key.
 func (d *DB) PaperKey(paperKey string) (*Auth, *[32]byte, error) {
-	auths, err := d.ListByType(PaperKeyType)
+	auths, err := d.ListByType(api.PaperKeyType)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to auth")
 	}

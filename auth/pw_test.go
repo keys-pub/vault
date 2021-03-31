@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/keys-pub/vault/auth"
+	"github.com/keys-pub/vault/auth/api"
 	"github.com/keys-pub/vault/testutil"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +21,7 @@ func TestPassword(t *testing.T) {
 	reg, err := db.RegisterPassword("testpassword", mk)
 	require.NoError(t, err)
 
-	auths, err := db.ListByType(auth.PasswordType)
+	auths, err := db.ListByType(api.PasswordType)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(auths))
 

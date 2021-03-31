@@ -8,6 +8,7 @@ import (
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys-ext/auth/fido2"
 	"github.com/keys-pub/keys/encoding"
+	"github.com/keys-pub/vault/auth/api"
 	"github.com/pkg/errors"
 )
 
@@ -90,7 +91,7 @@ func (d *DB) RegisterFIDO2HMACSecret(ctx context.Context, plugin fido2.FIDO2Serv
 	id := encoding.MustEncode(hs.CredentialID, encoding.Base62)
 	auth := &Auth{
 		ID:        id,
-		Type:      FIDO2HMACSecretType,
+		Type:      api.FIDO2HMACSecretType,
 		Salt:      hs.Salt,
 		AAGUID:    hs.AAGUID,
 		NoPin:     hs.NoPin,
@@ -105,7 +106,7 @@ func (d *DB) RegisterFIDO2HMACSecret(ctx context.Context, plugin fido2.FIDO2Serv
 		return nil, errors.Errorf("invalid hmac-secret key length")
 	}
 	auth.EncryptedKey = secretBoxSeal(mk[:], key)
-	if err := d.Add(auth); err != nil {
+	if err := d.Set(auth); err != nil {
 		return nil, err
 	}
 	return auth, nil
@@ -113,7 +114,7 @@ func (d *DB) RegisterFIDO2HMACSecret(ctx context.Context, plugin fido2.FIDO2Serv
 
 // FIDO2HMACSecret authenticates using FIDO2 hmac-secret.
 func (d *DB) FIDO2HMACSecret(ctx context.Context, plugin fido2.FIDO2Server, pin string) (*Auth, *[32]byte, error) {
-	auths, err := d.ListByType(FIDO2HMACSecretType)
+	auths, err := d.ListByType(api.FIDO2HMACSecretType)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -1,13 +1,6 @@
-package auth
+package api
 
-import (
-	"time"
-
-	"github.com/pkg/errors"
-)
-
-// ErrInvalidAuth if auth is invalid.
-var ErrInvalidAuth = errors.New("invalid auth")
+import "time"
 
 // Auth describes an auth method encrypting a master key.
 type Auth struct {
