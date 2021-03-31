@@ -9,11 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// RegisterPaperKey registers paper key auth.
-func (d *DB) RegisterPaperKey(paperKey string, mk *[32]byte) (*Auth, error) {
-	if mk == nil {
-		return nil, errors.Errorf("nil master key")
-	}
+func NewPaperKey(paperKey string, mk *[32]byte) (*Auth, error) {
 	id := encoding.MustEncode(keys.RandBytes(32), encoding.Base62)
 
 	key, err := encoding.PhraseToBytes(paperKey, true)
@@ -22,11 +18,22 @@ func (d *DB) RegisterPaperKey(paperKey string, mk *[32]byte) (*Auth, error) {
 	}
 
 	ek := secretBoxSeal(mk[:], key)
-	auth := &Auth{
+	return &Auth{
 		ID:           id,
 		Type:         api.PaperKeyType,
 		EncryptedKey: ek,
 		CreatedAt:    time.Now(),
+	}, nil
+}
+
+// RegisterPaperKey registers paper key auth.
+func (d *DB) RegisterPaperKey(paperKey string, mk *[32]byte) (*Auth, error) {
+	if mk == nil {
+		return nil, errors.Errorf("nil master key")
+	}
+	auth, err := NewPaperKey(paperKey, mk)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := d.Set(auth); err != nil {

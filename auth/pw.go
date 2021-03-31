@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewPasswordAuth(password string, mk *[32]byte) (*Auth, error) {
+func NewPassword(password string, mk *[32]byte) (*Auth, error) {
 	id := encoding.MustEncode(keys.RandBytes(32), encoding.Base62)
 	salt := keys.RandBytes(24)
 	key, err := keys.KeyForPassword(password, salt)
@@ -31,7 +31,7 @@ func (d *DB) RegisterPassword(password string, mk *[32]byte) (*Auth, error) {
 	if mk == nil {
 		return nil, errors.Errorf("nil master key")
 	}
-	auth, err := NewPasswordAuth(password, mk)
+	auth, err := NewPassword(password, mk)
 	if err != nil {
 		return nil, err
 	}
