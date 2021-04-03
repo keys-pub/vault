@@ -288,3 +288,31 @@ func unmarshalMessage(b []byte) *message {
 	}
 	return &m
 }
+
+func TestSyncBulk(t *testing.T) {
+	// vault.SetLogger(vault.NewLogger(vault.DebugLevel))
+	var err error
+	env := testutil.NewEnv(t, vault.NoLevel)
+	defer env.CloseFn()
+
+	ctx := context.TODO()
+
+	alice := keys.NewEdX25519KeyFromSeed(testutil.Seed(0x01))
+	testutil.AccountCreate(t, env, alice, "alice@getchill.app")
+	ck := testutil.RegisterClient(t, env, keys.NewEdX25519KeyFromSeed(testutil.Seed(0xa0)), alice)
+	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", ck)
+	defer closeFn1()
+
+	for i := 0; i < 2000; i++ {
+		k := api.NewKey(keys.GenerateEdX25519Key()).WithLabels("bulk")
+		err = v1.Keyring().Set(k)
+		require.NoError(t, err)
+	}
+
+	err = v1.Keyring().Sync(ctx)
+	require.NoError(t, err)
+
+	outs, err := v1.Keyring().KeysWithLabel("bulk")
+	require.NoError(t, err)
+	require.Equal(t, 2000, len(outs))
+}

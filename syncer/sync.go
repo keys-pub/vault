@@ -105,13 +105,13 @@ func (s *Syncer) Push(ctx context.Context, key *api.Key) error {
 
 // Pull from remote.
 func (s *Syncer) Pull(ctx context.Context, key *api.Key) error {
-	local, err := pullIndex(s.db, key.ID)
-	if err != nil {
-		return err
-	}
-
 	// Keep pulling until no more or cancel.
 	for {
+		local, err := pullIndex(s.db, key.ID)
+		if err != nil {
+			return err
+		}
+
 		truncated, err := s.pullNext(ctx, key, local)
 		if err != nil {
 			return err
