@@ -21,11 +21,11 @@ type Change struct {
 // If the keyring isn't synced this may not return all changes for those keyring
 // keys, so you should usually sync the keyring first.
 func (v *Vault) Changes(ctx context.Context) ([]*Change, error) {
-	tokens, err := getTokens(v.db)
+	vaults, err := getVaults(v.db)
 	if err != nil {
 		return nil, err
 	}
-	status, err := v.client.Status(ctx, tokens)
+	status, err := v.client.Status(ctx, vaults)
 	if err != nil {
 		return nil, err
 	}

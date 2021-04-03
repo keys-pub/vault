@@ -1,7 +1,6 @@
 package vault
 
 import (
-	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys/tsutil"
 	"github.com/keys-pub/vault/client"
 )
@@ -36,28 +35,5 @@ func WithClock(clock tsutil.Clock) Option {
 func WithClient(client *client.Client) Option {
 	return func(o *Options) {
 		o.Client = client
-	}
-}
-
-// SetupOptions for vault.
-type SetupOptions struct {
-	ClientKey *keys.EdX25519Key
-}
-
-// SetupOption for Vault.
-type SetupOption func(*SetupOptions)
-
-func newSetupOptions(opts ...SetupOption) *SetupOptions {
-	options := &SetupOptions{}
-	for _, o := range opts {
-		o(options)
-	}
-	return options
-}
-
-// WithClientKey ...
-func WithClientKey(key *keys.EdX25519Key) SetupOption {
-	return func(o *SetupOptions) {
-		o.ClientKey = key
 	}
 }

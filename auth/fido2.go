@@ -34,8 +34,8 @@ func GenerateFIDO2HMACSecret(ctx context.Context, plugin fido2.FIDO2Server, pin 
 
 	cdh := bytes.Repeat([]byte{0x00}, 32) // No client data
 	rp := &fido2.RelyingParty{
-		ID:   "keys.pub",
-		Name: "keys.pub",
+		ID:   "getchill.app",
+		Name: "getchill.app",
 	}
 
 	logger.Debugf("Find device...")
@@ -224,8 +224,8 @@ func hmacSecret(ctx context.Context, plugin fido2.FIDO2Server, auths []*Auth, pi
 	logger.Debugf("Getting hmac-secret...")
 	cdh := bytes.Repeat([]byte{0x00}, 32) // No client data
 	rp := &fido2.RelyingParty{
-		ID:   "keys.pub",
-		Name: "keys.pub",
+		ID:   "getchill.app",
+		Name: "getchill.app",
 	}
 	secretResp, err := plugin.HMACSecret(ctx, &fido2.HMACSecretRequest{
 		Device:         authDevice.Device.Path,

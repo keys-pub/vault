@@ -38,14 +38,6 @@ type Vault struct {
 
 	fido2Plugin fido2.FIDO2Server
 
-	// checkedAt time.Time
-	// checkMtx  sync.Mutex
-
-	// Main secret key if unlocked.
-	// TODO: Let's clear this after some time
-	mk *[32]byte
-
-	ck *api.Key
 	kr *Keyring
 }
 
@@ -55,7 +47,7 @@ func New(path string, auth *auth.DB, opt ...Option) (*Vault, error) {
 
 	cl := opts.Client
 	if cl == nil {
-		c, err := client.New("https://keys.pub")
+		c, err := client.New("https://getchill.app")
 		if err != nil {
 			return nil, err
 		}
@@ -102,13 +94,11 @@ func (v *Vault) Status() Status {
 
 // Setup vault.
 // Doesn't unlock.
-func (v *Vault) Setup(mk *[32]byte, opt ...SetupOption) error {
+func (v *Vault) Setup(mk *[32]byte, ck *api.Key) error {
 	logger.Debugf("Setup...")
 	if v.db != nil {
 		return errors.Errorf("already unlocked")
 	}
-	opts := newSetupOptions(opt...)
-
 	if _, err := os.Stat(v.path); err == nil {
 		return errors.Errorf("already setup")
 	}
@@ -128,21 +118,15 @@ func (v *Vault) Setup(mk *[32]byte, opt ...SetupOption) error {
 		return err
 	}
 
-	// Generate or import client key
-	var ck *api.Key
-	var kerr error
-	if opts.ClientKey != nil {
-		ck, kerr = importClientKey(db, opts.ClientKey, v.clock)
-	} else {
-		key := keys.GenerateEdX25519Key()
-		ck, kerr = importClientKey(db, key, v.clock)
-	}
-	if kerr != nil {
-		onErrFn()
-		return kerr
+	if ck != nil {
+		logger.Debugf("Saving client key...")
+		if err := setClientKey(db, ck); err != nil {
+			onErrFn()
+			return err
+		}
 	}
 
-	v.unlocked(mk, ck, db)
+	v.db = db
 
 	logger.Debugf("Setup complete")
 	return nil
@@ -174,32 +158,10 @@ func (v *Vault) Unlock(mk *[32]byte) error {
 		return err
 	}
 
-	ck, err := clientKey(db)
-	if err != nil {
-		onErrFn()
-		return err
-	}
-	if ck == nil {
-		onErrFn()
-		return errors.Errorf("missing client key")
-	}
-
-	v.unlocked(mk, ck, db)
+	v.db = db
 
 	logger.Debugf("Unlocked")
 	return nil
-}
-
-func (v *Vault) unlocked(mk *[32]byte, ck *api.Key, db *sqlx.DB) {
-	v.mk = mk
-	v.ck = ck
-	v.db = db
-}
-
-func (v *Vault) locked() {
-	v.db = nil
-	v.mk = nil
-	v.ck = nil
 }
 
 // Lock vault.
@@ -211,7 +173,7 @@ func (v *Vault) Lock() error {
 		return nil
 	}
 	db := v.db
-	v.locked()
+	v.db = nil
 
 	if err := db.Close(); err != nil {
 		return errors.Wrapf(err, "failed to close db")
@@ -222,18 +184,29 @@ func (v *Vault) Lock() error {
 
 // Register a vault.
 // You can register a key that already exists.
-// You can sync a keyring vault to get registered vault keys as well.
+// Registering also sync's the keyring.
 // Requires Unlock.
-func (v *Vault) Register(ctx context.Context, key *keys.EdX25519Key) (*api.Key, error) {
+func (v *Vault) Register(ctx context.Context, key *keys.EdX25519Key, account *keys.EdX25519Key) (*api.Key, error) {
 	if v.db == nil {
 		return nil, ErrLocked
 	}
-	vk := api.NewKey(key).Created(v.clock.NowMillis())
-	token, err := v.client.Register(ctx, key)
+
+	vault, err := v.client.Get(ctx, key)
 	if err != nil {
 		return nil, err
 	}
-	vk.Token = token
+
+	var vk *api.Key
+	if vault != nil {
+		vk = api.NewKey(key).Created(vault.Timestamp)
+		vk.Token = vault.Token
+	} else {
+		k, err := v.client.Register(ctx, key, account)
+		if err != nil {
+			return nil, err
+		}
+		vk = k
+	}
 
 	if err := v.Keyring().Set(vk); err != nil {
 		return nil, err
@@ -277,8 +250,11 @@ func (v *Vault) DB() *sqlx.DB {
 }
 
 // ClientKey is the vault client key.
-func (v *Vault) ClientKey() *api.Key {
-	return v.ck
+func (v *Vault) ClientKey() (*api.Key, error) {
+	if v.db == nil {
+		return nil, ErrLocked
+	}
+	return clientKey(v.db)
 }
 
 // Client is the vault client.
@@ -301,28 +277,16 @@ func clientKey(db *sqlx.DB) (*api.Key, error) {
 	return &k, nil
 }
 
-func importClientKey(db *sqlx.DB, key *keys.EdX25519Key, clock tsutil.Clock) (*api.Key, error) {
-	logger.Debugf("Import client key...")
-	ck, err := clientKey(db)
-	if err != nil {
-		return nil, err
-	}
-	if ck != nil {
-		return nil, errors.Errorf("already setup")
-	}
-	ck = api.NewKey(key)
-	ck.CreatedAt = clock.NowMillis()
-	ck.UpdatedAt = clock.NowMillis()
-
+func setClientKey(db *sqlx.DB, ck *api.Key) error {
 	b, err := msgpack.Marshal(ck)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if err := setConfigBytes(db, "clientKey", b); err != nil {
-		return nil, err
+		return err
 	}
 
-	return ck, nil
+	return nil
 }
 
 func (v *Vault) Reset() error {

@@ -14,26 +14,27 @@ import (
 func TestChanges(t *testing.T) {
 	// vault.SetLogger(vault.NewLogger(vault.DebugLevel))
 	var err error
-	env := testutil.NewEnv(t, nil) // vault.NewLogger(vault.DebugLevel))
+	env := testutil.NewEnv(t, vault.ErrLevel)
 	defer env.CloseFn()
 
 	ctx := context.TODO()
-	ck := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xaf))
+	alice := keys.NewEdX25519KeyFromSeed(testutil.Seed(0x01))
+	testutil.AccountCreate(t, env, alice, "alice@getchill.app")
+	ck := testutil.RegisterClient(t, env, keys.NewEdX25519KeyFromSeed(testutil.Seed(0xa0)), alice)
 
 	channels := []*keys.EdX25519Key{
-		keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb1)),
-		keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb2)),
-		keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb3)),
-		keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb4)),
+		keys.NewEdX25519KeyFromSeed(testutil.Seed(0xc1)),
+		keys.NewEdX25519KeyFromSeed(testutil.Seed(0xc2)),
+		keys.NewEdX25519KeyFromSeed(testutil.Seed(0xc3)),
+		keys.NewEdX25519KeyFromSeed(testutil.Seed(0xc4)),
 	}
-	alice := keys.NewEdX25519KeyFromSeed(testutil.Seed(0x01))
 
 	t.Logf("Client #1")
 	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", ck)
 	defer closeFn1()
 
 	for _, channel := range channels {
-		_, err = v1.Register(context.TODO(), channel)
+		_, err = v1.Register(context.TODO(), channel, alice)
 		require.NoError(t, err)
 		err = v1.Add(channel, newMessage("msg1", alice.ID()).marshal(), syncer.CryptoBoxSealCipher{})
 		require.NoError(t, err)
@@ -52,10 +53,10 @@ func TestChanges(t *testing.T) {
 	chgs, err := v2.Changes(context.TODO())
 	require.NoError(t, err)
 	expected := []*vault.Change{
-		{VID: channels[3].ID(), Local: 0, Remote: 1, Timestamp: 1234567890070},
-		{VID: channels[2].ID(), Local: 0, Remote: 1, Timestamp: 1234567890048},
-		{VID: channels[1].ID(), Local: 0, Remote: 1, Timestamp: 1234567890026},
-		{VID: channels[0].ID(), Local: 0, Remote: 1, Timestamp: 1234567890004},
+		{VID: channels[3].ID(), Local: 0, Remote: 1, Timestamp: 1234567890110},
+		{VID: channels[2].ID(), Local: 0, Remote: 1, Timestamp: 1234567890080},
+		{VID: channels[1].ID(), Local: 0, Remote: 1, Timestamp: 1234567890050},
+		{VID: channels[0].ID(), Local: 0, Remote: 1, Timestamp: 1234567890020},
 	}
 	require.Equal(t, expected, chgs)
 }

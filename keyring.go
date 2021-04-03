@@ -49,29 +49,33 @@ func (k *Keyring) initTables() error {
 	return nil
 }
 
-func (k *Keyring) check() error {
+func (k *Keyring) check() (*api.Key, error) {
 	if k.vault.DB() == nil {
-		return ErrLocked
+		return nil, ErrLocked
 	}
-	if k.vault.ClientKey() == nil {
-		return errors.Errorf("no client key")
+	ck, err := k.vault.ClientKey()
+	if err != nil {
+		return nil, err
+	}
+	if ck == nil {
+		return nil, errors.Errorf("no client key (see SetupClient)")
 	}
 	if !k.init {
 		if err := k.initTables(); err != nil {
-			return err
+			return nil, err
 		}
 		k.init = true
 	}
-	return nil
+	return ck, nil
 }
 
 // Save a key.
 // Requires Unlock.
 func (k *Keyring) Set(key *api.Key) error {
-	if err := k.check(); err != nil {
+	ck, err := k.check()
+	if err != nil {
 		return err
 	}
-	ck := k.vault.ClientKey()
 	return syncer.Transact(k.vault.DB(), func(tx *sqlx.Tx) error {
 		logger.Debugf("Saving key %s", key.ID)
 		b, err := msgpack.Marshal(key)
@@ -91,10 +95,10 @@ func (k *Keyring) Set(key *api.Key) error {
 // Remove a key.
 // Requires Unlock.
 func (k *Keyring) Remove(kid keys.ID) error {
-	if err := k.check(); err != nil {
+	ck, err := k.check()
+	if err != nil {
 		return err
 	}
-	ck := k.vault.ClientKey()
 	return syncer.Transact(k.vault.DB(), func(tx *sqlx.Tx) error {
 		key := api.NewKey(kid)
 		key.Deleted = true
@@ -111,7 +115,7 @@ func (k *Keyring) Remove(kid keys.ID) error {
 
 // Keys in vault.
 func (k *Keyring) Keys() ([]*api.Key, error) {
-	if err := k.check(); err != nil {
+	if _, err := k.check(); err != nil {
 		return nil, err
 	}
 	return getKeys(k.vault.DB())
@@ -119,7 +123,7 @@ func (k *Keyring) Keys() ([]*api.Key, error) {
 
 // KeysWithType in vault.
 func (k *Keyring) KeysWithType(typ string) ([]*api.Key, error) {
-	if err := k.check(); err != nil {
+	if _, err := k.check(); err != nil {
 		return nil, err
 	}
 	return getKeysByType(k.vault.DB(), typ)
@@ -127,7 +131,7 @@ func (k *Keyring) KeysWithType(typ string) ([]*api.Key, error) {
 
 // KeysWithLabel in vault.
 func (k *Keyring) KeysWithLabel(typ string) ([]*api.Key, error) {
-	if err := k.check(); err != nil {
+	if _, err := k.check(); err != nil {
 		return nil, err
 	}
 	return getKeysByLabel(k.vault.DB(), typ)
@@ -136,7 +140,7 @@ func (k *Keyring) KeysWithLabel(typ string) ([]*api.Key, error) {
 // Get key by id.
 // Returns nil if not found.
 func (k *Keyring) Get(kid keys.ID) (*api.Key, error) {
-	if err := k.check(); err != nil {
+	if _, err := k.check(); err != nil {
 		return nil, err
 	}
 	return getKey(k.vault.DB(), kid)
@@ -146,7 +150,7 @@ func (k *Keyring) Get(kid keys.ID) (*api.Key, error) {
 // If not found, returns keys.ErrNotFound.
 // You can use Get instead.
 func (k *Keyring) Key(kid keys.ID) (*api.Key, error) {
-	if err := k.check(); err != nil {
+	if _, err := k.check(); err != nil {
 		return nil, err
 	}
 	key, err := getKey(k.vault.DB(), kid)
@@ -165,19 +169,23 @@ func (k *Keyring) Sync(ctx context.Context) error {
 	k.smtx.Lock()
 	defer k.smtx.Unlock()
 
-	if err := k.check(); err != nil {
+	ck, err := k.check()
+	if err != nil {
 		return err
 	}
 
 	s := syncer.New(k.vault.DB(), k.vault.Client(), k.receive)
-	if err := s.Sync(ctx, k.vault.ClientKey()); err != nil {
+	if err := s.Sync(ctx, ck); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (k *Keyring) receive(ctx *syncer.Context, events []*Event) error {
-	ck := k.vault.ClientKey()
+	ck, err := k.vault.ClientKey()
+	if err != nil {
+		return err
+	}
 	for _, event := range events {
 		b, err := keys.CryptoBoxSealOpen(event.Data, ck.AsX25519())
 		if err != nil {
@@ -202,7 +210,7 @@ func (k *Keyring) receive(ctx *syncer.Context, events []*Event) error {
 
 // Find looks for local key and if not found, syncs and retries.
 func (k *Keyring) Find(ctx context.Context, kid keys.ID) (*api.Key, error) {
-	if err := k.check(); err != nil {
+	if _, err := k.check(); err != nil {
 		return nil, err
 	}
 
@@ -219,12 +227,12 @@ func (k *Keyring) Find(ctx context.Context, kid keys.ID) (*api.Key, error) {
 }
 
 // Tokens can be used to listen for realtime updates.
-func (k *Keyring) Tokens() ([]*client.Token, error) {
-	if err := k.check(); err != nil {
+func (k *Keyring) Tokens() ([]*client.Vault, error) {
+	if _, err := k.check(); err != nil {
 		return nil, err
 	}
 
-	return getTokens(k.vault.DB())
+	return getVaults(k.vault.DB())
 }
 
 func updateKeyTx(tx *sqlx.Tx, key *api.Key) error {
@@ -280,7 +288,7 @@ func getKeysByType(db *sqlx.DB, typ string) ([]*api.Key, error) {
 	return vks, nil
 }
 
-func getTokens(db *sqlx.DB) ([]*client.Token, error) {
+func getVaults(db *sqlx.DB) ([]*client.Vault, error) {
 	var vks []*api.Key
 	if err := db.Select(&vks, "SELECT * FROM keys WHERE type = $1 AND token != $2", "edx25519", ""); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -288,9 +296,9 @@ func getTokens(db *sqlx.DB) ([]*client.Token, error) {
 		}
 		return nil, err
 	}
-	out := []*client.Token{}
+	out := []*client.Vault{}
 	for _, k := range vks {
-		out = append(out, &client.Token{KID: k.ID, Token: k.Token})
+		out = append(out, &client.Vault{ID: k.ID, Token: k.Token})
 	}
 	return out, nil
 }

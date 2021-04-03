@@ -17,24 +17,30 @@ import (
 func TestSyncKeyring(t *testing.T) {
 	// vault.SetLogger(vault.NewLogger(vault.DebugLevel))
 	var err error
-	env := testutil.NewEnv(t, nil) // vault.NewLogger(vault.DebugLevel))
+	env := testutil.NewEnv(t, vault.ErrLevel)
 	defer env.CloseFn()
 
 	ctx := context.TODO()
-	ck := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xaf))
 
 	t.Logf("Client #1")
+	alice := keys.NewEdX25519KeyFromSeed(testutil.Seed(0x01))
+	testutil.AccountCreate(t, env, alice, "alice@getchill.app")
+	ck := testutil.RegisterClient(t, env, keys.NewEdX25519KeyFromSeed(testutil.Seed(0xa0)), alice)
 	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", ck)
 	defer closeFn1()
 
 	// Add alice key
-	alice := keys.NewEdX25519KeyFromSeed(testutil.Seed(0x01))
 	ak := api.NewKey(alice).WithLabels("alice")
 	err = v1.Keyring().Set(ak)
 	require.NoError(t, err)
 
 	err = v1.Keyring().Sync(ctx)
 	require.NoError(t, err)
+
+	outs, err := v1.Keyring().KeysWithLabel("alice")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(outs))
+	require.Equal(t, alice.ID(), outs[0].ID)
 
 	t.Logf("Client #2")
 	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, "testpassword2", ck)
@@ -86,10 +92,12 @@ func TestSyncKeyring(t *testing.T) {
 func TestSyncCreateFind(t *testing.T) {
 	// vault.SetLogger(vault.NewLogger(vault.DebugLevel))
 	var err error
-	env := testutil.NewEnv(t, nil) // vault.NewLogger(vault.DebugLevel))
+	env := testutil.NewEnv(t, vault.ErrLevel)
 	defer env.CloseFn()
 
-	ck := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xaf))
+	alice := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xaf))
+	testutil.AccountCreate(t, env, alice, "alice@getchill.app")
+	ck := testutil.RegisterClient(t, env, keys.NewEdX25519KeyFromSeed(testutil.Seed(0xa0)), alice)
 
 	channel := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb0))
 
@@ -97,7 +105,7 @@ func TestSyncCreateFind(t *testing.T) {
 	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", ck)
 	defer closeFn1()
 
-	_, err = v1.Register(context.TODO(), channel)
+	_, err = v1.Register(context.TODO(), channel, alice)
 	require.NoError(t, err)
 
 	out, err := v1.Keyring().Key(channel.ID())
@@ -142,21 +150,22 @@ func (m message) marshal() []byte {
 func TestSyncMessages(t *testing.T) {
 	// vault.SetLogger(vault.NewLogger(vault.DebugLevel))
 	var err error
-	env := testutil.NewEnv(t, nil) // vault.NewLogger(vault.DebugLevel))
+	env := testutil.NewEnv(t, vault.ErrLevel)
 	defer env.CloseFn()
 
 	ctx := context.TODO()
-	ck := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xaf))
 	cipher := syncer.NoCipher{}
 
 	channel := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xb0))
-	alice := keys.NewEdX25519KeyFromSeed(testutil.Seed(0x01))
 
 	t.Logf("Client #1")
+	alice := keys.NewEdX25519KeyFromSeed(testutil.Seed(0x01))
+	testutil.AccountCreate(t, env, alice, "alice@getchill.app")
+	ck := testutil.RegisterClient(t, env, keys.NewEdX25519KeyFromSeed(testutil.Seed(0xa0)), alice)
 	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", ck)
 	defer closeFn1()
 
-	_, err = v1.Register(context.TODO(), channel)
+	_, err = v1.Register(context.TODO(), channel, alice)
 	require.NoError(t, err)
 
 	err = v1.Add(channel, newMessage("msg1", alice.ID()).marshal(), cipher)
@@ -206,7 +215,7 @@ func TestSyncMessages(t *testing.T) {
 func TestSyncAliceBob(t *testing.T) {
 	// vault.SetLogger(vault.NewLogger(vault.DebugLevel))
 	var err error
-	env := testutil.NewEnv(t, nil) // vault.NewLogger(vault.DebugLevel))
+	env := testutil.NewEnv(t, vault.ErrLevel)
 	defer env.CloseFn()
 
 	ctx := context.TODO()
@@ -214,12 +223,13 @@ func TestSyncAliceBob(t *testing.T) {
 	cipher := syncer.NoCipher{}
 
 	t.Logf("Alice")
-	cka := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xaf))
 	alice := keys.NewEdX25519KeyFromSeed(testutil.Seed(0x01))
+	testutil.AccountCreate(t, env, alice, "alice@getchill.app")
+	cka := testutil.RegisterClient(t, env, keys.NewEdX25519KeyFromSeed(testutil.Seed(0xa0)), alice)
 	v1, closeFn1 := testutil.NewTestVaultWithSetup(t, env, "testpassword1", cka)
 	defer closeFn1()
 
-	_, err = v1.Register(context.TODO(), channel)
+	_, err = v1.Register(context.TODO(), channel, alice)
 	require.NoError(t, err)
 
 	err = v1.Add(channel, newMessage("hi bob", alice.ID()).marshal(), cipher)
@@ -238,12 +248,13 @@ func TestSyncAliceBob(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Logf("Bob")
-	ckb := keys.NewEdX25519KeyFromSeed(testutil.Seed(0xbf))
 	bob := keys.NewEdX25519KeyFromSeed(testutil.Seed(0x02))
+	testutil.AccountCreate(t, env, bob, "bob@getchill.app")
+	ckb := testutil.RegisterClient(t, env, keys.NewEdX25519KeyFromSeed(testutil.Seed(0xa1)), bob)
 	v2, closeFn2 := testutil.NewTestVaultWithSetup(t, env, "testpassword2", ckb)
 	defer closeFn2()
 
-	_, err = v2.Register(ctx, channel)
+	_, err = v2.Register(ctx, channel, bob)
 	require.NoError(t, err)
 
 	bobMsgs := []*message{}

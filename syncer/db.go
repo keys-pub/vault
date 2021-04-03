@@ -57,7 +57,7 @@ func Transact(db *sqlx.DB, txFn func(*sqlx.Tx) error) (err error) {
 }
 
 func AddTx(tx *sqlx.Tx, vk *keys.EdX25519Key, b []byte, cipher Cipher) error {
-	logger.Debugf("Adding to push %s (%s)", vk.ID())
+	logger.Debugf("Adding to push %s", vk.ID())
 	encrypted, err := cipher.Encrypt(b, vk)
 	if err != nil {
 		return err

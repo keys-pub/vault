@@ -106,6 +106,9 @@ func checkResponse(resp *http.Response) error {
 	if readErr != nil {
 		return err
 	}
+	if resp.StatusCode != 200 {
+		logger.Debugf("Response: %s", string(b))
+	}
 	if len(b) == 0 {
 		return err
 	}

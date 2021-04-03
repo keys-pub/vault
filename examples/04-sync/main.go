@@ -11,12 +11,14 @@ import (
 	"github.com/keys-pub/keys/tsutil"
 	"github.com/keys-pub/vault"
 	"github.com/keys-pub/vault/auth"
+	"github.com/keys-pub/vault/client"
 	"github.com/pkg/errors"
 )
 
 func main() {
 	logger := vault.NewLogger(vault.DebugLevel)
 	vault.SetLogger(logger)
+	client.SetLogger(logger)
 
 	auth, err := auth.NewDB("/tmp/auth.db")
 	if err != nil {

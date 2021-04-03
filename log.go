@@ -32,6 +32,8 @@ const (
 	WarnLevel LogLevel = 1
 	// ErrLevel ...
 	ErrLevel LogLevel = 0
+	// NoLevel
+	NoLevel LogLevel = -1
 )
 
 // NewLogger ...

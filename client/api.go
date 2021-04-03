@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/keys-pub/keys"
+	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/keys/dstore"
 	"github.com/keys-pub/keys/dstore/events"
 	"github.com/keys-pub/keys/tsutil"
@@ -38,10 +39,11 @@ type RemoteStatus struct {
 	Timestamp int64   `json:"ts" msgpack:"ts"`
 }
 
-// Token ...
-type Token struct {
-	KID   keys.ID `json:"kid"`
-	Token string  `json:"token"`
+// Vault ...
+type Vault struct {
+	ID        keys.ID `json:"id"`
+	Token     string  `json:"token"`
+	Timestamp int64   `json:"ts"`
 }
 
 // Events from vault API.
@@ -50,7 +52,7 @@ func (c *Client) Events(ctx context.Context, key *keys.EdX25519Key, index int64)
 	if key == nil {
 		return nil, errors.Errorf("no api key")
 	}
-	path := dstore.Path("vault", key.ID()) + ".msgpack"
+	path := dstore.Path("vault", key.ID(), "events")
 	params := url.Values{}
 	if index != 0 {
 		params.Add("idx", strconv.FormatInt(index, 10))
@@ -97,7 +99,7 @@ func (c *Client) Post(ctx context.Context, key *keys.EdX25519Key, data [][]byte)
 	if key == nil {
 		return errors.Errorf("no api key")
 	}
-	path := dstore.Path("vault", key.ID()) + ".msgpack"
+	path := dstore.Path("vault", key.ID(), "events")
 
 	b, err := msgpack.Marshal(data)
 	if err != nil {
@@ -118,7 +120,7 @@ func (c *Client) Post(ctx context.Context, key *keys.EdX25519Key, data [][]byte)
 	}
 
 	if _, err := c.Request(ctx, &Request{Method: "POST", Path: path, Body: b, Key: key, Progress: progress}); err != nil {
-		return err
+		return errors.Wrapf(err, "failed to post events")
 	}
 	return nil
 }
@@ -132,25 +134,26 @@ func (c *Client) Delete(ctx context.Context, key *keys.EdX25519Key) error {
 	return nil
 }
 
-// Register a vault.
-func (c *Client) Register(ctx context.Context, vault *keys.EdX25519Key) (string, error) {
-	path := dstore.Path("vault", vault.ID())
-	resp, err := c.Request(ctx, &Request{Method: "PUT", Path: path, Key: vault})
+func (c *Client) Register(ctx context.Context, key *keys.EdX25519Key, account *keys.EdX25519Key) (*api.Key, error) {
+	path := dstore.Path("vault", key.ID())
+	resp, err := c.Request(ctx, &Request{Method: "PUT", Path: path, Key: account})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	var token Token
-	if err := json.Unmarshal(resp.Data, &token); err != nil {
-		return "", err
+	out := api.NewKey(key).Created(c.clock.NowMillis())
+	var vlt Vault
+	if err := json.Unmarshal(resp.Data, &vlt); err != nil {
+		return nil, err
 	}
-	return token.Token, nil
+	out.Token = vlt.Token
+	return out, nil
 }
 
 // Get a vault.
 // Returns nil if not found.
-func (c *Client) Get(ctx context.Context, vault *keys.EdX25519Key) (*Token, error) {
+func (c *Client) Get(ctx context.Context, vault *keys.EdX25519Key) (*Vault, error) {
 	logger.Debugf("Get vault %s", vault.ID())
-	path := dstore.Path("vault", vault.ID(), "info")
+	path := dstore.Path("vault", vault.ID())
 	resp, err := c.Request(ctx, &Request{Method: "GET", Path: path, Key: vault})
 	if err != nil {
 		return nil, err
@@ -158,26 +161,26 @@ func (c *Client) Get(ctx context.Context, vault *keys.EdX25519Key) (*Token, erro
 	if resp == nil {
 		return nil, nil
 	}
-	var token Token
-	if err := json.Unmarshal(resp.Data, &token); err != nil {
+	var vlt Vault
+	if err := json.Unmarshal(resp.Data, &vlt); err != nil {
 		return nil, err
 	}
 
-	return &token, nil
+	return &vlt, nil
 }
 
 // Status ...
-func (c *Client) Status(ctx context.Context, tokens []*Token) ([]*RemoteStatus, error) {
+func (c *Client) Status(ctx context.Context, vlts []*Vault) ([]*RemoteStatus, error) {
 	statusReq := struct {
 		Vaults map[keys.ID]string `json:"vaults,omitempty" msgpack:"vaults,omitempty"`
 	}{
 		Vaults: map[keys.ID]string{},
 	}
-	for _, t := range tokens {
-		if t.Token == "" {
+	for _, vlt := range vlts {
+		if vlt.Token == "" {
 			return nil, errors.Errorf("empty token")
 		}
-		statusReq.Vaults[t.KID] = t.Token
+		statusReq.Vaults[vlt.ID] = vlt.Token
 	}
 
 	body, err := json.Marshal(statusReq)
