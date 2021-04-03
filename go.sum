@@ -80,8 +80,9 @@ github.com/fatih/structtag v1.2.0/go.mod h1:mBJUNpUnHmRKrKlQQlmCrh5PuhftFbNv8Ys4
 github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6/go.mod h1:1i71OnUq3iUe1ma7Lr6yG6/rjvM3emb6yoL7xLFzcVQ=
 github.com/getchill-app/http-client v0.0.0-20210403012548-aee276f0e1d8 h1:WjH4vGKVl2C22SQDttZvHkUygOcCq0yOPagRbyUfGmA=
 github.com/getchill-app/http-client v0.0.0-20210403012548-aee276f0e1d8/go.mod h1:2r0ZnVuGzXSNGGTezLM2020tEiMlaC7YopnPBI+l9hw=
-github.com/getchill-app/server v0.0.0-20210403011736-cb8e3ad4de38 h1:LnnVrbThAET/3NYv//7ZKfPbIL6dCP2fHmOveqF+ml0=
 github.com/getchill-app/server v0.0.0-20210403011736-cb8e3ad4de38/go.mod h1:0SqZtNl5RL0zX9CJed1QT4jOsVFAxbH7WOkzuFiuSOc=
+github.com/getchill-app/server v0.0.0-20210403215008-63eeb378e83c h1:uBZQCl7bZe4hShMwZfmFrBSBFyb5qHKIy1DRIKwusS8=
+github.com/getchill-app/server v0.0.0-20210403215008-63eeb378e83c/go.mod h1:0SqZtNl5RL0zX9CJed1QT4jOsVFAxbH7WOkzuFiuSOc=
 github.com/getchill-app/server/api v0.0.0-20210403011634-674e9741dea1 h1:2AiEwrYNqGUAizwRKiCHES1m/CFHld0SfnKoi9r4PU4=
 github.com/getchill-app/server/api v0.0.0-20210403011634-674e9741dea1/go.mod h1:DbZobJ69Yi8ozcY3j6zK627TL1QsHIL8r80nOoCSlo4=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=

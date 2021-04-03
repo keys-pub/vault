@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/getchill-app/http-client v0.0.0-20210403012548-aee276f0e1d8
-	github.com/getchill-app/server v0.0.0-20210403011736-cb8e3ad4de38
+	github.com/getchill-app/server v0.0.0-20210403215008-63eeb378e83c
 	github.com/jmoiron/sqlx v1.3.1
 	github.com/keys-pub/keys v0.1.21-0.20210402011617-28dedbda9f32
 	github.com/keys-pub/keys-ext/auth/fido2 v0.0.0-20210327130412-59e9fcfcf22c
@@ -19,6 +19,6 @@ require (
 
 // replace github.com/keys-pub/keys => ../keys
 
-replace github.com/getchill-app/server => ../../getchill/server
+// replace github.com/getchill-app/server => ../../getchill/server
 
 // replace github.com/keys-pub/keys-ext/ws/api => ../keys-ext/ws/api
