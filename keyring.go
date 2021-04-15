@@ -37,7 +37,9 @@ func (k *Keyring) initTables() error {
 			createdAt INTEGER,
 			updatedAt INTEGER,
 			notes TEXT,
-			labels TEXT
+			labels TEXT,
+			email TEXT,
+			ext JSON
 		);`,
 		// TODO: Indexes
 	}
@@ -69,7 +71,7 @@ func (k *Keyring) check() (*api.Key, error) {
 	return ck, nil
 }
 
-// Save a key.
+// Set a key in the keyring.
 // Requires Unlock.
 func (k *Keyring) Set(key *api.Key) error {
 	ck, err := k.check()
@@ -90,6 +92,19 @@ func (k *Keyring) Set(key *api.Key) error {
 		}
 		return nil
 	})
+}
+
+// Save key to the keyring and try to sync in the background.
+func (k *Keyring) Save(key *api.Key) error {
+	if err := k.Set(key); err != nil {
+		return err
+	}
+	go func() {
+		if err := k.Sync(context.Background()); err != nil {
+			logger.Warningf("Unable to sync: %v", err)
+		}
+	}()
+	return nil
 }
 
 // Remove a key.
@@ -130,11 +145,29 @@ func (k *Keyring) KeysWithType(typ string) ([]*api.Key, error) {
 }
 
 // KeysWithLabel in vault.
-func (k *Keyring) KeysWithLabel(typ string) ([]*api.Key, error) {
+func (k *Keyring) KeysWithLabel(label string) ([]*api.Key, error) {
 	if _, err := k.check(); err != nil {
 		return nil, err
 	}
-	return getKeysByLabel(k.vault.DB(), typ)
+	return getKeysByLabel(k.vault.DB(), label)
+}
+
+// KeyWithLabel in vault.
+func (k *Keyring) KeyWithLabel(label string) (*api.Key, error) {
+	if _, err := k.check(); err != nil {
+		return nil, err
+	}
+	ks, err := getKeysByLabel(k.vault.DB(), label)
+	if err != nil {
+		return nil, err
+	}
+	if len(ks) == 0 {
+		return nil, nil
+	}
+	if len(ks) > 1 {
+		return nil, errors.Errorf("multiple keys for label %q", label)
+	}
+	return ks[0], nil
 }
 
 // Get key by id.
@@ -238,7 +271,7 @@ func (k *Keyring) Tokens() ([]*client.Vault, error) {
 func updateKeyTx(tx *sqlx.Tx, key *api.Key) error {
 	logger.Debugf("Update key %s", key.ID)
 	if _, err := tx.NamedExec(`INSERT OR REPLACE INTO keys VALUES 
-		(:id, :type, :private, :public, :token, :createdAt, :updatedAt, :notes, :labels)`, key); err != nil {
+		(:id, :type, :private, :public, :token, :createdAt, :updatedAt, :notes, :labels, :email, :ext)`, key); err != nil {
 		return err
 	}
 	return nil
