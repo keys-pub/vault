@@ -12,6 +12,7 @@ import (
 	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/keys/dstore"
 	"github.com/keys-pub/keys/dstore/events"
+	"github.com/keys-pub/keys/http/client"
 	"github.com/keys-pub/keys/tsutil"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v4"
@@ -58,7 +59,7 @@ func (c *Client) Events(ctx context.Context, key *keys.EdX25519Key, index int64)
 		params.Add("idx", strconv.FormatInt(index, 10))
 	}
 
-	resp, err := c.Request(ctx, &Request{Method: "GET", Path: path, Params: params, Key: key})
+	resp, err := c.Request(ctx, &client.Request{Method: "GET", Path: path, Params: params, Key: key})
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +120,7 @@ func (c *Client) Post(ctx context.Context, key *keys.EdX25519Key, data [][]byte)
 		}
 	}
 
-	if _, err := c.Request(ctx, &Request{Method: "POST", Path: path, Body: b, Key: key, Progress: progress}); err != nil {
+	if _, err := c.Request(ctx, &client.Request{Method: "POST", Path: path, Body: b, Key: key, Progress: progress}); err != nil {
 		return errors.Wrapf(err, "failed to post events")
 	}
 	return nil
@@ -128,7 +129,7 @@ func (c *Client) Post(ctx context.Context, key *keys.EdX25519Key, data [][]byte)
 // Delete from vault API.
 func (c *Client) Delete(ctx context.Context, key *keys.EdX25519Key) error {
 	path := dstore.Path("vault", key.ID())
-	if _, err := c.Request(ctx, &Request{Method: "DELETE", Path: path, Key: key}); err != nil {
+	if _, err := c.Request(ctx, &client.Request{Method: "DELETE", Path: path, Key: key}); err != nil {
 		return err
 	}
 	return nil
@@ -136,11 +137,11 @@ func (c *Client) Delete(ctx context.Context, key *keys.EdX25519Key) error {
 
 func (c *Client) Register(ctx context.Context, key *keys.EdX25519Key, account *keys.EdX25519Key) (*api.Key, error) {
 	path := dstore.Path("vault", key.ID())
-	resp, err := c.Request(ctx, &Request{Method: "PUT", Path: path, Key: account})
+	resp, err := c.Request(ctx, &client.Request{Method: "PUT", Path: path, Key: account})
 	if err != nil {
 		return nil, err
 	}
-	out := api.NewKey(key).Created(c.clock.NowMillis())
+	out := api.NewKey(key).Created(c.Clock().NowMillis())
 	var vlt Vault
 	if err := json.Unmarshal(resp.Data, &vlt); err != nil {
 		return nil, err
@@ -154,7 +155,7 @@ func (c *Client) Register(ctx context.Context, key *keys.EdX25519Key, account *k
 func (c *Client) Get(ctx context.Context, vault *keys.EdX25519Key) (*Vault, error) {
 	logger.Debugf("Get vault %s", vault.ID())
 	path := dstore.Path("vault", vault.ID())
-	resp, err := c.Request(ctx, &Request{Method: "GET", Path: path, Key: vault})
+	resp, err := c.Request(ctx, &client.Request{Method: "GET", Path: path, Key: vault})
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +190,7 @@ func (c *Client) Status(ctx context.Context, vlts []*Vault) ([]*RemoteStatus, er
 	}
 
 	params := url.Values{}
-	resp, err := c.Request(ctx, &Request{Method: "POST", Path: "/vaults/status", Params: params, Body: body})
+	resp, err := c.Request(ctx, &client.Request{Method: "POST", Path: "/vaults/status", Params: params, Body: body})
 	if err != nil {
 		return nil, err
 	}
