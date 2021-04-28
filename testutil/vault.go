@@ -39,9 +39,9 @@ func NewTestVault(t *testing.T, env *Env) (*vault.Vault, func()) {
 
 func NewTestVaultWithSetup(t *testing.T, env *Env, password string, ck *api.Key) (*vault.Vault, func()) {
 	vlt, closeFn := NewTestVault(t, env)
-	mk, err := vlt.SetupPassword(password, ck)
+	_, err := vlt.SetupPassword(password)
 	require.NoError(t, err)
-	err = vlt.Unlock(mk)
+	err = vlt.SetClientKey(ck)
 	require.NoError(t, err)
 	return vlt, closeFn
 }

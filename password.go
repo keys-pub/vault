@@ -2,17 +2,16 @@ package vault
 
 import (
 	"github.com/keys-pub/keys"
-	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/vault/auth"
 )
 
 // SetupPassword setup vault with a password.
-func (v *Vault) SetupPassword(password string, ck *api.Key) (*[32]byte, error) {
+func (v *Vault) SetupPassword(password string) (*[32]byte, error) {
 	mk := keys.Rand32()
 	if _, err := v.auth.RegisterPassword(password, mk); err != nil {
 		return nil, err
 	}
-	if err := v.Setup(mk, ck); err != nil {
+	if err := v.Setup(mk); err != nil {
 		return nil, err
 	}
 	return mk, nil

@@ -25,6 +25,7 @@ func (v *Vault) Changes(ctx context.Context) ([]*Change, error) {
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("Changes for %d vaults", len(vaults))
 	status, err := v.client.Status(ctx, vaults)
 	if err != nil {
 		return nil, err

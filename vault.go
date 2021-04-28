@@ -94,7 +94,7 @@ func (v *Vault) Status() Status {
 
 // Setup vault.
 // Doesn't unlock.
-func (v *Vault) Setup(mk *[32]byte, ck *api.Key) error {
+func (v *Vault) Setup(mk *[32]byte) error {
 	logger.Debugf("Setup...")
 	if v.db != nil {
 		return errors.Errorf("already unlocked")
@@ -116,14 +116,6 @@ func (v *Vault) Setup(mk *[32]byte, ck *api.Key) error {
 	if err := initTables(db); err != nil {
 		onErrFn()
 		return err
-	}
-
-	if ck != nil {
-		logger.Debugf("Saving client key...")
-		if err := setClientKey(db, ck); err != nil {
-			onErrFn()
-			return err
-		}
 	}
 
 	v.db = db
@@ -199,7 +191,7 @@ func (v *Vault) Register(ctx context.Context, key *keys.EdX25519Key, account *ke
 	var vk *api.Key
 	if vault != nil {
 		vk = api.NewKey(key).Created(vault.Timestamp)
-		vk.Token = vault.Token
+		vk.SetExtString("token", vault.Token)
 	} else {
 		k, err := v.client.Register(ctx, key, account)
 		if err != nil {
@@ -275,6 +267,13 @@ func clientKey(db *sqlx.DB) (*api.Key, error) {
 		return nil, err
 	}
 	return &k, nil
+}
+
+func (v *Vault) SetClientKey(ck *api.Key) error {
+	if v.db == nil {
+		return ErrLocked
+	}
+	return setClientKey(v.db, ck)
 }
 
 func setClientKey(db *sqlx.DB, ck *api.Key) error {

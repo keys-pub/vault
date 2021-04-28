@@ -7,7 +7,7 @@ require (
 	github.com/getchill-app/http-client v0.0.0-20210403012548-aee276f0e1d8
 	github.com/getchill-app/server v0.0.0-20210403215008-63eeb378e83c
 	github.com/jmoiron/sqlx v1.3.1
-	github.com/keys-pub/keys v0.1.22-0.20210417180828-29a388ae126a
+	github.com/keys-pub/keys v0.1.22-0.20210428191820-49dfbda60f85
 	github.com/keys-pub/keys-ext/auth/fido2 v0.0.0-20210327130412-59e9fcfcf22c
 	github.com/mutecomm/go-sqlcipher/v4 v4.4.2
 	github.com/pkg/errors v0.9.1

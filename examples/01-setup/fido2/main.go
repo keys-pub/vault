@@ -5,21 +5,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys-ext/auth/fido2"
-	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/vault"
 	"github.com/keys-pub/vault/auth"
-	"github.com/keys-pub/vault/testutil"
 )
 
 func main() {
 	logger := vault.NewLogger(vault.DebugLevel)
 	vault.SetLogger(logger)
-
-	// Client key
-	ck := api.NewKey(keys.NewEdX25519KeyFromSeed(testutil.Seed(0xa0)))
-	ck.Token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.ZEPKPTYpg3WWXfgGsOVp--hd-U4lNhEXxsl5tx79NBE"
 
 	// FIDO2
 	fido2Plugin, err := fido2.OpenPlugin("fido2.so")
@@ -52,7 +45,7 @@ func main() {
 
 	// Setup
 	fmt.Println("Setting up with FIDO2 hmac-secret...")
-	if _, err := vlt.SetupFIDO2HMACSecret(context.TODO(), hs, pin, ck); err != nil {
+	if _, err := vlt.SetupFIDO2HMACSecret(context.TODO(), hs, pin); err != nil {
 		log.Fatal(err)
 	}
 

@@ -33,12 +33,10 @@ func (k *Keyring) initTables() error {
 			type TEXT NOT NULL,
 			private BLOB,
 			public BLOB,
-			token TEXT,	
 			createdAt INTEGER,
 			updatedAt INTEGER,
 			notes TEXT,
 			labels TEXT,
-			email TEXT,
 			ext JSON
 		);`,
 		// TODO: Indexes
@@ -51,9 +49,22 @@ func (k *Keyring) initTables() error {
 	return nil
 }
 
-func (k *Keyring) check() (*api.Key, error) {
+func (k *Keyring) initDB() error {
 	if k.vault.DB() == nil {
-		return nil, ErrLocked
+		return ErrLocked
+	}
+	if !k.init {
+		if err := k.initTables(); err != nil {
+			return err
+		}
+		k.init = true
+	}
+	return nil
+}
+
+func (k *Keyring) check() (*api.Key, error) {
+	if err := k.initDB(); err != nil {
+		return nil, err
 	}
 	ck, err := k.vault.ClientKey()
 	if err != nil {
@@ -61,12 +72,6 @@ func (k *Keyring) check() (*api.Key, error) {
 	}
 	if ck == nil {
 		return nil, errors.Errorf("no client key (see SetupClient)")
-	}
-	if !k.init {
-		if err := k.initTables(); err != nil {
-			return nil, err
-		}
-		k.init = true
 	}
 	return ck, nil
 }
@@ -130,15 +135,15 @@ func (k *Keyring) Remove(kid keys.ID) error {
 
 // Keys in vault.
 func (k *Keyring) Keys() ([]*api.Key, error) {
-	if _, err := k.check(); err != nil {
-		return nil, err
+	if k.vault.DB() == nil {
+		return nil, ErrLocked
 	}
 	return getKeys(k.vault.DB())
 }
 
 // KeysWithType in vault.
 func (k *Keyring) KeysWithType(typ string) ([]*api.Key, error) {
-	if _, err := k.check(); err != nil {
+	if err := k.initDB(); err != nil {
 		return nil, err
 	}
 	return getKeysByType(k.vault.DB(), typ)
@@ -146,7 +151,7 @@ func (k *Keyring) KeysWithType(typ string) ([]*api.Key, error) {
 
 // KeysWithLabel in vault.
 func (k *Keyring) KeysWithLabel(label string) ([]*api.Key, error) {
-	if _, err := k.check(); err != nil {
+	if err := k.initDB(); err != nil {
 		return nil, err
 	}
 	return getKeysByLabel(k.vault.DB(), label)
@@ -154,7 +159,7 @@ func (k *Keyring) KeysWithLabel(label string) ([]*api.Key, error) {
 
 // KeyWithLabel in vault.
 func (k *Keyring) KeyWithLabel(label string) (*api.Key, error) {
-	if _, err := k.check(); err != nil {
+	if err := k.initDB(); err != nil {
 		return nil, err
 	}
 	ks, err := getKeysByLabel(k.vault.DB(), label)
@@ -173,7 +178,7 @@ func (k *Keyring) KeyWithLabel(label string) (*api.Key, error) {
 // Get key by id.
 // Returns nil if not found.
 func (k *Keyring) Get(kid keys.ID) (*api.Key, error) {
-	if _, err := k.check(); err != nil {
+	if err := k.initDB(); err != nil {
 		return nil, err
 	}
 	return getKey(k.vault.DB(), kid)
@@ -183,7 +188,7 @@ func (k *Keyring) Get(kid keys.ID) (*api.Key, error) {
 // If not found, returns keys.ErrNotFound.
 // You can use Get instead.
 func (k *Keyring) Key(kid keys.ID) (*api.Key, error) {
-	if _, err := k.check(); err != nil {
+	if err := k.initDB(); err != nil {
 		return nil, err
 	}
 	key, err := getKey(k.vault.DB(), kid)
@@ -259,8 +264,7 @@ func (k *Keyring) Find(ctx context.Context, kid keys.ID) (*api.Key, error) {
 	return getKey(k.vault.DB(), kid)
 }
 
-// Tokens can be used to listen for realtime updates.
-func (k *Keyring) Tokens() ([]*client.Vault, error) {
+func (k *Keyring) Vaults() ([]*client.Vault, error) {
 	if _, err := k.check(); err != nil {
 		return nil, err
 	}
@@ -271,7 +275,7 @@ func (k *Keyring) Tokens() ([]*client.Vault, error) {
 func updateKeyTx(tx *sqlx.Tx, key *api.Key) error {
 	logger.Debugf("Update key %s", key.ID)
 	if _, err := tx.NamedExec(`INSERT OR REPLACE INTO keys VALUES 
-		(:id, :type, :private, :public, :token, :createdAt, :updatedAt, :notes, :labels, :email, :ext)`, key); err != nil {
+		(:id, :type, :private, :public, :createdAt, :updatedAt, :notes, :labels, :ext)`, key); err != nil {
 		return err
 	}
 	return nil
@@ -323,7 +327,7 @@ func getKeysByType(db *sqlx.DB, typ string) ([]*api.Key, error) {
 
 func getVaults(db *sqlx.DB) ([]*client.Vault, error) {
 	var vks []*api.Key
-	if err := db.Select(&vks, "SELECT * FROM keys WHERE type = $1 AND token != $2", "edx25519", ""); err != nil {
+	if err := db.Select(&vks, "SELECT * FROM keys WHERE type = $1", "edx25519"); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -331,7 +335,10 @@ func getVaults(db *sqlx.DB) ([]*client.Vault, error) {
 	}
 	out := []*client.Vault{}
 	for _, k := range vks {
-		out = append(out, &client.Vault{ID: k.ID, Token: k.Token})
+		token := k.ExtString("token")
+		if token != "" {
+			out = append(out, &client.Vault{ID: k.ID, Token: token})
+		}
 	}
 	return out, nil
 }

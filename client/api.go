@@ -146,7 +146,7 @@ func (c *Client) Register(ctx context.Context, key *keys.EdX25519Key, account *k
 	if err := json.Unmarshal(resp.Data, &vlt); err != nil {
 		return nil, err
 	}
-	out.Token = vlt.Token
+	out.SetExtString("token", vlt.Token)
 	return out, nil
 }
 

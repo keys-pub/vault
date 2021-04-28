@@ -22,13 +22,13 @@ func TestVaultSetup(t *testing.T) {
 	require.EqualError(t, err, "setup needed")
 	require.Equal(t, vault.SetupNeeded, vlt.Status())
 
-	err = vlt.Setup(mk, nil)
+	err = vlt.Setup(mk)
 	require.NoError(t, err)
 	require.Equal(t, vault.Unlocked, vlt.Status())
 	err = vlt.Lock()
 	require.NoError(t, err)
 
-	err = vlt.Setup(mk, nil)
+	err = vlt.Setup(mk)
 	require.EqualError(t, err, "already setup")
 
 	// Unlock multiple times
@@ -54,7 +54,7 @@ func TestVaultLocked(t *testing.T) {
 
 	mk := keys.Rand32()
 
-	err = vlt.Setup(mk, nil)
+	err = vlt.Setup(mk)
 	require.NoError(t, err)
 
 	// Try accessing keyring while locked
@@ -76,7 +76,7 @@ func TestVaultInvalidPassword(t *testing.T) {
 	vlt, closeFn := testutil.NewTestVault(t, env)
 	defer closeFn()
 
-	_, err = vlt.SetupPassword("testpassword", nil)
+	_, err = vlt.SetupPassword("testpassword")
 	require.NoError(t, err)
 	require.Equal(t, vault.Unlocked, vlt.Status())
 

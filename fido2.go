@@ -5,7 +5,6 @@ import (
 
 	"github.com/keys-pub/keys"
 	"github.com/keys-pub/keys-ext/auth/fido2"
-	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/vault/auth"
 	"github.com/pkg/errors"
 )
@@ -41,7 +40,7 @@ func (v *Vault) GenerateFIDO2HMACSecret(ctx context.Context, pin string, device 
 }
 
 // SetupFIDO2HMACSecret sets up vault with a FIDO2 hmac-secret.
-func (v *Vault) SetupFIDO2HMACSecret(ctx context.Context, hs *auth.FIDO2HMACSecret, pin string, ck *api.Key) (*[32]byte, error) {
+func (v *Vault) SetupFIDO2HMACSecret(ctx context.Context, hs *auth.FIDO2HMACSecret, pin string) (*[32]byte, error) {
 	if v.fido2Plugin == nil {
 		return nil, errors.Errorf("no fido2 plugin set")
 	}
@@ -50,7 +49,7 @@ func (v *Vault) SetupFIDO2HMACSecret(ctx context.Context, hs *auth.FIDO2HMACSecr
 	if err != nil {
 		return nil, err
 	}
-	if err := v.Setup(mk, ck); err != nil {
+	if err := v.Setup(mk); err != nil {
 		return nil, err
 	}
 	return mk, nil

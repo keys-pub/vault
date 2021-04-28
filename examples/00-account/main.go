@@ -41,5 +41,5 @@ func main() {
 	}
 
 	log.Printf("Registered %s\n", reg.ID)
-	log.Printf("Token: %s\n", reg.Token)
+	log.Printf("Token: %s\n", reg.ExtString("token"))
 }

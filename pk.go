@@ -2,18 +2,17 @@ package vault
 
 import (
 	"github.com/keys-pub/keys"
-	"github.com/keys-pub/keys/api"
 	"github.com/keys-pub/vault/auth"
 )
 
 // SetupPaperKey setup vault with a paper key.
-func (v *Vault) SetupPaperKey(paperKey string, ck *api.Key) (*[32]byte, error) {
+func (v *Vault) SetupPaperKey(paperKey string) (*[32]byte, error) {
 	mk := keys.Rand32()
 	_, err := v.auth.RegisterPaperKey(paperKey, mk)
 	if err != nil {
 		return nil, err
 	}
-	if err := v.Setup(mk, ck); err != nil {
+	if err := v.Setup(mk); err != nil {
 		return nil, err
 	}
 	return mk, nil
