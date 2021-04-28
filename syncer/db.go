@@ -116,7 +116,7 @@ func PullIndexes(db *sqlx.DB) (map[keys.ID]int64, error) {
 		Index sql.NullInt64  `db:"ridx"`
 	}
 	var pis []*pullIndex
-	if err := db.Select(&pis, "SELECT vid, MAX(ridx) as ridx FROM pull"); err != nil {
+	if err := db.Select(&pis, "SELECT vid, MAX(ridx) as ridx FROM pull GROUP BY vid"); err != nil {
 		return nil, err
 	}
 	m := map[keys.ID]int64{}
